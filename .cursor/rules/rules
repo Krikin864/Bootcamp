@@ -16,6 +16,12 @@ PRODUCT GOAL
 - Allow manual assignment of opportunities to team members.
 - Track opportunity status using a Kanban-style workflow.
 
+DATABASE & INTEGRATION RULES
+-Use the Supabase client located in your library folder (standardize to @/lib/supabase).
+-Schema Mapping: Always map DB columns (snake_case) to Frontend props (camelCase) if necessary, or follow the schema in DB_Structure.md exactly.
+-Data Fetching: Prefer Server Components for fetching data when possible, or use useEffect/React Query for client-side interactions.
+-Error Handling: Every Supabase call must have a try/catch block or check for the error object returned by Supabase, displaying a toast notification for the user.
+
 STRICT SCOPE RULES
 - Stay within the MVP scope defined in the PRD.
 - Do NOT add new features unless explicitly requested.

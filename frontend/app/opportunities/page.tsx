@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Header from "@/components/header"
 import Sidebar from "@/components/sidebar"
 import { Button } from "@/components/ui/button"
@@ -8,20 +8,10 @@ import { Search, Plus, LayoutGrid, LayoutList } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import OpportunityCard from "@/components/opportunity-card"
 import FilterBar from "@/components/filter-bar"
-import { OPPORTUNITIES } from "@/lib/opportunities-data"
-
-interface Opportunity {
-  id: string
-  clientName: string
-  company: string
-  requiredSkill: string | string[]
-  urgency: "high" | "medium" | "low"
-  status: "new" | "assigned" | "done"
-  createdDate: string
-  summary: string
-  aiSummary: string
-  assignee: string
-}
+import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
+import { getOpportunities, type Opportunity } from "@/services/opportunities"
+import NewOpportunityModal from "@/components/new-opportunity-modal"
 
 export default function OpportunitiesPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
@@ -33,6 +23,29 @@ export default function OpportunitiesPage() {
     skill: "",
     assignedTeam: "",
   })
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [showNewOpportunityModal, setShowNewOpportunityModal] = useState(false)
+
+  // Cargar oportunidades desde Supabase
+  useEffect(() => {
+    async function loadOpportunities() {
+      try {
+        setIsLoading(true)
+        setError(null)
+        const data = await getOpportunities()
+        setOpportunities(data)
+      } catch (err) {
+        console.error('Error loading opportunities:', err)
+        setError('Failed to load opportunities. Please try again later.')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadOpportunities()
+  }, [])
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
@@ -60,7 +73,7 @@ export default function OpportunitiesPage() {
     }
   }
 
-  const filteredAndSortedOpportunities = OPPORTUNITIES.filter((opp) => {
+  const filteredAndSortedOpportunities = opportunities.filter((opp) => {
     const matchesSearch =
       opp.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       opp.company.toLowerCase().includes(searchTerm.toLowerCase())
@@ -104,7 +117,7 @@ export default function OpportunitiesPage() {
                 <h1 className="text-3xl font-bold text-foreground mb-2">Opportunities</h1>
                 <p className="text-muted-foreground">Manage all your leads and opportunities</p>
               </div>
-              <Button className="gap-2">
+              <Button className="gap-2" onClick={() => setShowNewOpportunityModal(true)}>
                 <Plus className="h-4 w-4" />
                 New Opportunity
               </Button>
@@ -142,7 +155,69 @@ export default function OpportunitiesPage() {
 
             <FilterBar filters={filters} setFilters={setFilters} sortBy={sortBy} setSortBy={setSortBy} />
 
-            {viewMode === "grid" ? (
+            {error && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4">
+                <p className="text-destructive">{error}</p>
+              </div>
+            )}
+
+            {isLoading ? (
+              <div className="space-y-4">
+                {viewMode === "grid" ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[...Array(6)].map((_, i) => (
+                      <div key={i} className="bg-card border border-border rounded-lg p-4 space-y-3">
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-6 w-full" />
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-card border border-border rounded-lg overflow-hidden">
+                    <table className="w-full">
+                      <thead className="bg-muted border-b border-border">
+                        <tr>
+                          <th className="px-6 py-3 text-left font-semibold text-foreground">Client</th>
+                          <th className="px-6 py-3 text-left font-semibold text-foreground">Company</th>
+                          <th className="px-6 py-3 text-left font-semibold text-foreground">Skill Required</th>
+                          <th className="px-6 py-3 text-left font-semibold text-foreground">Urgency</th>
+                          <th className="px-6 py-3 text-left font-semibold text-foreground">Status</th>
+                          <th className="px-6 py-3 text-left font-semibold text-foreground">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {[...Array(5)].map((_, i) => (
+                          <tr key={i}>
+                            <td className="px-6 py-4"><Skeleton className="h-4 w-24" /></td>
+                            <td className="px-6 py-4"><Skeleton className="h-4 w-32" /></td>
+                            <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
+                            <td className="px-6 py-4"><Skeleton className="h-6 w-16 rounded-full" /></td>
+                            <td className="px-6 py-4"><Skeleton className="h-6 w-16 rounded-full" /></td>
+                            <td className="px-6 py-4"><Skeleton className="h-4 w-20" /></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            ) : filteredAndSortedOpportunities.length === 0 ? (
+              <div className="bg-card border border-border rounded-lg p-12 text-center">
+                <div className="max-w-md mx-auto space-y-4">
+                  <div className="text-6xl mb-4">📋</div>
+                  <h3 className="text-xl font-semibold text-foreground">No opportunities yet</h3>
+                  <p className="text-muted-foreground">
+                    Get started by creating your first opportunity. Add client information and let AI help you analyze their needs.
+                  </p>
+                  <Button className="gap-2 mt-4" onClick={() => setShowNewOpportunityModal(true)}>
+                    <Plus className="h-4 w-4" />
+                    Create First Opportunity
+                  </Button>
+                </div>
+              </div>
+            ) : viewMode === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredAndSortedOpportunities.map((opp) => (
                   <OpportunityCard
@@ -168,28 +243,41 @@ export default function OpportunitiesPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredAndSortedOpportunities.map((opp) => (
-                      <tr key={opp.id} className="hover:bg-muted transition-colors">
-                        <td className="px-6 py-4 font-medium text-foreground">{opp.clientName}</td>
-                        <td className="px-6 py-4 text-card-foreground">{opp.company}</td>
-                        <td className="px-6 py-4 text-card-foreground">
-                          {Array.isArray(opp.requiredSkill) ? opp.requiredSkill.join(", ") : opp.requiredSkill}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`px-3 py-1 rounded-full text-sm font-medium ${getUrgencyColor(opp.urgency)}`}
-                          >
-                            {opp.urgency.charAt(0).toUpperCase() + opp.urgency.slice(1)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadge(opp.status)}`}>
-                            {opp.status.charAt(0).toUpperCase() + opp.status.slice(1)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-muted-foreground">{opp.createdDate}</td>
-                      </tr>
-                    ))}
+                    {filteredAndSortedOpportunities.map((opp) => {
+                      const skills = Array.isArray(opp.requiredSkill) ? opp.requiredSkill : [opp.requiredSkill]
+                      return (
+                        <tr key={opp.id} className="hover:bg-muted transition-colors">
+                          <td className="px-6 py-4 font-medium text-foreground">{opp.clientName}</td>
+                          <td className="px-6 py-4 text-card-foreground">{opp.company}</td>
+                          <td className="px-6 py-4">
+                            <div className="flex flex-wrap gap-1.5">
+                              {skills.length > 0 ? (
+                                skills.map((skill) => (
+                                  <Badge key={skill} variant="secondary" className="text-xs">
+                                    {skill}
+                                  </Badge>
+                                ))
+                              ) : (
+                                <span className="text-muted-foreground text-sm">No skills</span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`px-3 py-1 rounded-full text-sm font-medium ${getUrgencyColor(opp.urgency)}`}
+                            >
+                              {opp.urgency.charAt(0).toUpperCase() + opp.urgency.slice(1)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusBadge(opp.status)}`}>
+                              {opp.status.charAt(0).toUpperCase() + opp.status.slice(1)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-muted-foreground">{opp.createdDate}</td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -197,6 +285,10 @@ export default function OpportunitiesPage() {
           </div>
         </main>
       </div>
+      <NewOpportunityModal 
+        open={showNewOpportunityModal} 
+        onOpenChange={setShowNewOpportunityModal} 
+      />
     </div>
   )
 }

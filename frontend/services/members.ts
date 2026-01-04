@@ -22,7 +22,7 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
       .order('full_name', { ascending: true })
 
     if (profilesError) {
-      console.error('Error fetching profiles:', profilesError)
+      console.error('Error completo:', profilesError)
       throw profilesError
     }
 
@@ -109,7 +109,7 @@ export async function getTeamMembersCount(): Promise<number> {
       .select('*', { count: 'exact', head: true })
 
     if (error) {
-      console.error('Error counting team members:', error)
+      console.error('Error completo:', error)
       throw error
     }
 

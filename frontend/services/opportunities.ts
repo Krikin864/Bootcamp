@@ -255,7 +255,7 @@ export async function updateOpportunityStatus(
       .single()
 
     if (error) {
-      console.error('Error updating opportunity status:', error)
+      console.error('Error completo:', error)
       throw error
     }
 
@@ -334,7 +334,7 @@ export async function getTotalOpportunitiesCount(): Promise<number> {
       .select('*', { count: 'exact', head: true })
 
     if (error) {
-      console.error('Error counting opportunities:', error)
+      console.error('Error completo:', error)
       throw error
     }
 
@@ -402,15 +402,7 @@ export async function updateOpportunityAssignment(
       .single()
 
     if (error) {
-      console.error('❌ Error updating opportunity assignment:', {
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-        code: error.code,
-        opportunityId: id,
-        assignedUserId,
-        fullError: JSON.stringify(error, null, 2),
-      })
+      console.error('Error completo:', error)
       throw error
     }
 
@@ -474,24 +466,150 @@ export async function updateOpportunityAssignment(
       })
     }
   } catch (error: any) {
-    const errorInfo: Record<string, any> = {
-      message: error?.message || 'Unknown error',
-      opportunityId: id,
-      assignedUserId,
+    console.error('Error completo:', error)
+    throw error
+  }
+}
+
+/**
+ * Actualiza los detalles de una oportunidad (ai_summary, urgency, required_skill_id)
+ * @param id - ID de la oportunidad (UUID)
+ * @param updates - Objeto con los campos a actualizar
+ * @returns La oportunidad actualizada o null si hay error
+ */
+export async function updateOpportunityDetails(
+  id: string,
+  updates: {
+    ai_summary?: string
+    urgency?: string
+    required_skill_id?: string | null
+  }
+): Promise<Opportunity | null> {
+  try {
+    // Validar que el ID no esté vacío
+    if (!id || id.trim() === '') {
+      throw new Error('Opportunity ID is required')
     }
 
-    if (error?.details) errorInfo.details = error.details
-    if (error?.hint) errorInfo.hint = error.hint
-    if (error?.code) errorInfo.code = error.code
-    if (error?.stack) errorInfo.stack = error.stack
+    // Construir objeto de actualización solo con los campos proporcionados
+    const updateData: Record<string, any> = {}
     
-    try {
-      errorInfo.fullError = JSON.stringify(error, Object.getOwnPropertyNames(error), 2)
-    } catch {
-      errorInfo.fullError = String(error)
+    if (updates.ai_summary !== undefined) {
+      updateData.ai_summary = updates.ai_summary
+    }
+    
+    if (updates.urgency !== undefined) {
+      // Normalizar urgency a minúsculas
+      updateData.urgency = updates.urgency.toLowerCase()
+    }
+    
+    if (updates.required_skill_id !== undefined) {
+      // Si es null, establecer como null
+      if (updates.required_skill_id === null) {
+        updateData.required_skill_id = null
+      } else if (updates.required_skill_id.trim() !== '') {
+        // Validar que required_skill_id sea un UUID válido (no un nombre como 'React')
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        if (!uuidRegex.test(updates.required_skill_id)) {
+          throw new Error(`required_skill_id debe ser un UUID válido, no un nombre. Valor recibido: ${updates.required_skill_id}`)
+        }
+        updateData.required_skill_id = updates.required_skill_id
+      } else {
+        updateData.required_skill_id = null
+      }
     }
 
-    console.error('❌ Error in updateOpportunityAssignment:', errorInfo)
+    console.log(`[updateOpportunityDetails] Actualizando oportunidad:`, {
+      opportunityId: id,
+      updates: updateData,
+    })
+
+    const { data, error } = await supabase
+      .from('Opportunities')
+      .update(updateData)
+      .eq('id', id)
+      .select(`
+        id,
+        client_id,
+        assigned_user_id,
+        status,
+        original_message,
+        ai_summary,
+        urgency,
+        created_at,
+        required_skill_id,
+        Clients!client_id (
+          name,
+          company
+        ),
+        Profiles!assigned_user_id (
+          full_name
+        )
+      `)
+      .single()
+
+    if (error) {
+      console.error('Error completo:', error)
+      throw error
+    }
+
+    if (!data) {
+      return null
+    }
+
+    // Obtener skills para esta oportunidad usando UUID
+    let skills: { id: string; name: string }[] = []
+    
+    if (data.required_skill_id) {
+      const { data: skillData } = await supabase
+        .from('Skills')
+        .select('id, name')
+        .eq('id', data.required_skill_id)
+
+      if (skillData && skillData.length > 0) {
+        skills = skillData
+      }
+    }
+
+    // Intentar también desde tabla de relación
+    if (skills.length === 0) {
+      const { data: opportunitySkills } = await supabase
+        .from('opportunity_skills')
+        .select(`
+          skill:skill_id (
+            id,
+            name
+          )
+        `)
+        .eq('opportunity_id', id)
+
+      if (opportunitySkills && opportunitySkills.length > 0) {
+        skills = opportunitySkills.map((os: any) => os.skill).filter(Boolean)
+      }
+    }
+
+    const skillNames = skills.map(s => s.name)
+    const client = (data as any).Clients || (data as any).client || null
+    const assignedUser = (data as any).Profiles || (data as any).assigned_user || null
+
+    return {
+      id: data.id,
+      clientName: client?.name || 'Unknown Client',
+      company: client?.company || 'Unknown Company',
+      summary: data.original_message || '',
+      requiredSkill: skillNames.length > 0 ? (skillNames.length === 1 ? skillNames[0] : skillNames) : [],
+      assignee: assignedUser?.full_name || '',
+      status: (data.status?.toLowerCase() || 'new') as "new" | "assigned" | "done",
+      urgency: (data.urgency?.toLowerCase() || 'medium') as "high" | "medium" | "low",
+      aiSummary: data.ai_summary || '',
+      createdDate: new Date(data.created_at).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    }
+  } catch (error: any) {
+    console.error('Error completo:', error)
     throw error
   }
 }
@@ -507,7 +625,7 @@ export async function getActiveOpportunitiesCount(): Promise<number> {
       .eq('status', 'assigned')
 
     if (error) {
-      console.error('Error counting active opportunities:', error)
+      console.error('Error completo:', error)
       throw error
     }
 

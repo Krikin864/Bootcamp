@@ -169,10 +169,12 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
     await handleUpdateStatus(opportunityId, "done")
   }
 
-  const handleSaveEdits = (updates: Partial<Opportunity>) => {
+  const handleSaveEdits = (updatedOpportunity: Opportunity) => {
     if (selectedOpportunity) {
-      const updatedOpportunity = { ...selectedOpportunity, ...updates }
-      setOpportunities((prev) => prev.map((opp) => (opp.id === selectedOpportunity.id ? updatedOpportunity : opp)))
+      // Actualizar con los datos reales de la DB (ya persistidos)
+      setOpportunities((prev) => 
+        prev.map((opp) => (opp.id === selectedOpportunity.id ? updatedOpportunity : opp))
+      )
       setSelectedOpportunity(updatedOpportunity)
     }
   }

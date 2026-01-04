@@ -1,32 +1,22 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Sparkles, Zap, Edit2 } from "lucide-react"
+import { Sparkles, Zap, Edit2, Loader2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { SKILLS } from "@/lib/skills"
-
-interface Opportunity {
-  id: string
-  clientName: string
-  company: string
-  summary: string
-  requiredSkill: string | string[]
-  assignee: string
-  status: "new" | "assigned" | "done"
-  urgency: "high" | "medium" | "low"
-  aiSummary: string
-}
+import { getSkills, type Skill } from "@/services/skills"
+import { updateOpportunityDetails, type Opportunity } from "@/services/opportunities"
+import { toast } from "sonner"
 
 interface OpportunityDetailsModalProps {
   opportunity: Opportunity | null
   onClose: () => void
   onAssignClick: () => void
-  onSaveEdits?: (updates: Partial<Opportunity>) => void
+  onSaveEdits?: (updatedOpportunity: Opportunity) => void
 }
 
 export default function OpportunityDetailsModal({
@@ -36,11 +26,51 @@ export default function OpportunityDetailsModal({
   onSaveEdits,
 }: OpportunityDetailsModalProps) {
   const [isEditing, setIsEditing] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [skills, setSkills] = useState<Skill[]>([])
+  const [isLoadingSkills, setIsLoadingSkills] = useState(false)
   const [editedValues, setEditedValues] = useState({
     summary: "",
-    skills: [] as string[],
+    skillId: "none", // Usar "none" en lugar de "" para evitar el error del Select
     urgency: "",
   })
+
+  // Cargar skills desde la base de datos cuando se abre el modal en modo edición
+  useEffect(() => {
+    async function loadSkills() {
+      if (!opportunity || !isEditing) return
+      
+      try {
+        setIsLoadingSkills(true)
+        const skillsData = await getSkills()
+        setSkills(skillsData)
+        
+        // Si la oportunidad tiene una skill, encontrar su ID por nombre
+        const currentSkills = Array.isArray(opportunity.requiredSkill) 
+          ? opportunity.requiredSkill 
+          : [opportunity.requiredSkill]
+        
+        if (currentSkills.length > 0 && currentSkills[0] && skillsData.length > 0) {
+          // Buscar el ID de la skill actual por nombre
+          const currentSkill = skillsData.find(s => currentSkills.includes(s.name))
+          if (currentSkill) {
+            setEditedValues(prev => ({ ...prev, skillId: currentSkill.id }))
+          } else {
+            setEditedValues(prev => ({ ...prev, skillId: "none" }))
+          }
+        } else {
+          setEditedValues(prev => ({ ...prev, skillId: "none" }))
+        }
+      } catch (error) {
+        console.error('Error loading skills:', error)
+        toast.error('Failed to load skills')
+      } finally {
+        setIsLoadingSkills(false)
+      }
+    }
+
+    loadSkills()
+  }, [opportunity, isEditing])
 
   if (!opportunity) return null
 
@@ -53,28 +83,77 @@ export default function OpportunityDetailsModal({
   const handleEditStart = () => {
     setEditedValues({
       summary: opportunity.aiSummary,
-      skills: Array.isArray(opportunity.requiredSkill) ? opportunity.requiredSkill : [opportunity.requiredSkill],
+      skillId: "none", // Se establecerá cuando se carguen las skills
       urgency: opportunity.urgency,
     })
     setIsEditing(true)
   }
 
-  const handleAddSkill = (skill: string) => {
-    setEditedValues((prev) => ({
-      ...prev,
-      skills: prev.skills.includes(skill) ? prev.skills.filter((s) => s !== skill) : [...prev.skills, skill],
-    }))
-  }
+  const handleSaveEdits = async () => {
+    if (!opportunity) return
 
-  const handleSaveEdits = () => {
-    if (onSaveEdits) {
-      onSaveEdits({
-        summary: editedValues.summary,
-        requiredSkill: editedValues.skills,
-        urgency: editedValues.urgency as "high" | "medium" | "low",
-      })
+    try {
+      setIsSaving(true)
+
+      // Preparar los datos para actualizar
+      const updates: {
+        ai_summary?: string
+        urgency?: string
+        required_skill_id?: string | null
+      } = {}
+
+      // Solo incluir campos que han cambiado
+      if (editedValues.summary !== opportunity.aiSummary) {
+        updates.ai_summary = editedValues.summary
+      }
+
+      if (editedValues.urgency !== opportunity.urgency) {
+        updates.urgency = editedValues.urgency
+      }
+
+      // Actualizar required_skill_id - IMPORTANTE: usar UUID, no nombre
+      const currentSkills = Array.isArray(opportunity.requiredSkill) 
+        ? opportunity.requiredSkill 
+        : [opportunity.requiredSkill]
+      
+      const currentSkillName = currentSkills[0] || ""
+      const selectedSkill = skills.find(s => s.id === editedValues.skillId)
+      
+      if (editedValues.skillId === "none") {
+        // Si se seleccionó "none", establecer como null
+        if (currentSkills.length > 0) {
+          updates.required_skill_id = null
+        }
+      } else if (selectedSkill) {
+        // Usar el UUID de la skill seleccionada, no el nombre
+        if (selectedSkill.name !== currentSkillName) {
+          updates.required_skill_id = selectedSkill.id // UUID, no nombre
+        }
+      }
+
+      // Solo actualizar si hay cambios
+      if (Object.keys(updates).length > 0) {
+        const updatedOpportunity = await updateOpportunityDetails(opportunity.id, updates)
+        
+        if (updatedOpportunity && onSaveEdits) {
+          // Pasar la oportunidad completa actualizada para que el Kanban se actualice
+          onSaveEdits(updatedOpportunity)
+          toast.success('Opportunity updated successfully')
+          setIsEditing(false)
+        } else {
+          throw new Error('Failed to update opportunity')
+        }
+      } else {
+        // No hay cambios, solo cerrar el modo edición
+        setIsEditing(false)
+      }
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Unknown error occurred'
+      toast.error(`Failed to update opportunity: ${errorMessage}`)
+      console.error('Error saving edits:', error)
+    } finally {
+      setIsSaving(false)
     }
-    setIsEditing(false)
   }
 
   const currentSkills = Array.isArray(opportunity.requiredSkill)
@@ -135,6 +214,7 @@ export default function OpportunityDetailsModal({
                 onChange={(e) => setEditedValues((prev) => ({ ...prev, summary: e.target.value }))}
                 rows={3}
                 className="bg-secondary/50 border-border"
+                disabled={isSaving}
               />
             )}
           </div>
@@ -151,11 +231,15 @@ export default function OpportunityDetailsModal({
                 <div>
                   <label className="text-xs font-medium text-muted-foreground block mb-2">Required Skills</label>
                   <div className="flex flex-wrap gap-2">
-                    {currentSkills.map((skill) => (
-                      <Badge key={skill} variant="secondary">
-                        {skill}
-                      </Badge>
-                    ))}
+                    {currentSkills.length > 0 ? (
+                      currentSkills.map((skill) => (
+                        <Badge key={skill} variant="secondary">
+                          {skill}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm text-muted-foreground italic">No skills assigned</span>
+                    )}
                   </div>
                 </div>
                 <div className="bg-secondary/50 p-3 rounded-lg border border-border">
@@ -170,20 +254,33 @@ export default function OpportunityDetailsModal({
             ) : (
               <div className="space-y-3">
                 <div>
-                  <Label className="text-xs font-medium mb-2 block">Required Skills (multi-select)</Label>
-                  <div className="bg-secondary/50 border border-border rounded-lg p-3 space-y-2">
-                    {SKILLS.map((skill) => (
-                      <label key={skill} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={editedValues.skills.includes(skill)}
-                          onChange={() => handleAddSkill(skill)}
-                          className="w-4 h-4 rounded border-border"
-                        />
-                        <span className="text-sm text-foreground">{skill}</span>
-                      </label>
-                    ))}
-                  </div>
+                  <Label htmlFor="modal-edit-skill" className="text-xs font-medium mb-2 block">
+                    Required Skill
+                  </Label>
+                  {isLoadingSkills ? (
+                    <div className="flex items-center gap-2 p-3 bg-secondary/50 border border-border rounded-lg">
+                      <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      <span className="text-sm text-muted-foreground">Loading skills...</span>
+                    </div>
+                  ) : (
+                    <Select
+                      value={editedValues.skillId}
+                      onValueChange={(value) => setEditedValues((prev) => ({ ...prev, skillId: value }))}
+                      disabled={isSaving}
+                    >
+                      <SelectTrigger id="modal-edit-skill" className="bg-secondary/50 border-border">
+                        <SelectValue placeholder="Select a skill" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No skill</SelectItem>
+                        {skills.map((skill) => (
+                          <SelectItem key={skill.id} value={skill.id}>
+                            {skill.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div>
                   <Label htmlFor="modal-edit-urgency" className="text-xs font-medium">
@@ -192,8 +289,9 @@ export default function OpportunityDetailsModal({
                   <Select
                     value={editedValues.urgency}
                     onValueChange={(v) => setEditedValues((prev) => ({ ...prev, urgency: v }))}
+                    disabled={isSaving}
                   >
-                    <SelectTrigger id="modal-edit-urgency">
+                    <SelectTrigger id="modal-edit-urgency" className="bg-secondary/50 border-border">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -227,10 +325,26 @@ export default function OpportunityDetailsModal({
           <div className="flex gap-3 justify-end pt-4 border-t border-border">
             {isEditing ? (
               <>
-                <Button variant="outline" onClick={() => setIsEditing(false)}>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setIsEditing(false)}
+                  disabled={isSaving}
+                >
                   Cancel
                 </Button>
-                <Button onClick={handleSaveEdits}>Save Changes</Button>
+                <Button 
+                  onClick={handleSaveEdits}
+                  disabled={isSaving}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
               </>
             ) : (
               <>

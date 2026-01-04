@@ -12,9 +12,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { getOpportunities, type Opportunity } from "@/services/opportunities"
 import NewOpportunityModal from "@/components/new-opportunity-modal"
+import { useSidebarState } from "@/hooks/use-sidebar-state"
 
 export default function OpportunitiesPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const { isOpen: sidebarOpen, toggle: toggleSidebar } = useSidebarState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [viewMode, setViewMode] = useState<"table" | "grid">("table")
   const [sortBy, setSortBy] = useState("recent")
@@ -80,7 +81,10 @@ export default function OpportunitiesPage() {
 
     if (!matchesSearch) return false
 
-    if (filters.urgency && filters.urgency !== "" && opp.urgency !== filters.urgency.toLowerCase()) return false
+    // Filtrar por urgencia: si el filtro es "all" o está vacío, mostrar todas; si no, filtrar por la urgencia específica
+    if (filters.urgency && filters.urgency !== "" && filters.urgency !== "all") {
+      if (opp.urgency !== filters.urgency.toLowerCase()) return false
+    }
 
     if (filters.skill && filters.skill !== "") {
       const skills = Array.isArray(opp.requiredSkill) ? opp.requiredSkill : [opp.requiredSkill]
@@ -109,7 +113,7 @@ export default function OpportunitiesPage() {
     <div className="flex h-screen bg-background text-foreground">
       <Sidebar open={sidebarOpen} />
       <div className="flex flex-col flex-1">
-        <Header onSidebarToggle={() => setSidebarOpen(!sidebarOpen)} />
+        <Header onSidebarToggle={toggleSidebar} />
         <main className="flex-1 overflow-auto">
           <div className="p-6 space-y-6">
             <div className="flex items-center justify-between">

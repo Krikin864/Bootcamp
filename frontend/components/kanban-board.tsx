@@ -5,7 +5,7 @@ import KanbanColumn from "@/components/kanban-column"
 import OpportunityDetailsModal from "@/components/opportunity-details-modal"
 import TeamRecommendationModal from "@/components/team-recommendation-modal"
 import { Skeleton } from "@/components/ui/skeleton"
-import { getOpportunities, updateOpportunityStatus, type Opportunity } from "@/services/opportunities"
+import { getOpportunities, updateOpportunityStatus, updateOpportunityAssignment, type Opportunity } from "@/services/opportunities"
 import { toast } from "sonner"
 
 export default function KanbanBoard({ filters }: { filters?: any }) {
@@ -57,14 +57,19 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
   }, [])
 
   const filteredOpportunities = opportunities.filter((opp) => {
-    if (filters?.urgency && filters.urgency !== "" && opp.urgency !== filters.urgency) return false
+    // Filtrar por urgencia: si el filtro es "all" o está vacío, mostrar todas; si no, filtrar por la urgencia específica
+    if (filters?.urgency && filters.urgency !== "" && filters.urgency !== "all") {
+      if (opp.urgency !== filters.urgency.toLowerCase()) return false
+    }
 
-    if (filters?.skill && filters.skill !== "") {
+    if (filters?.skill && filters.skill !== "" && filters.skill !== "all") {
       const skills = Array.isArray(opp.requiredSkill) ? opp.requiredSkill : [opp.requiredSkill]
       if (!skills.includes(filters.skill)) return false
     }
 
-    if (filters?.assignedTeam && filters.assignedTeam !== "" && opp.assignee !== filters.assignedTeam) return false
+    if (filters?.assignedTeam && filters.assignedTeam !== "" && filters.assignedTeam !== "all") {
+      if (opp.assignee !== filters.assignedTeam) return false
+    }
     return true
   })
 
@@ -115,21 +120,48 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
     setRecommendationModalOpen(true)
   }
 
-  const handleAssignTeamMember = async (teamMember: string) => {
-    if (opportunityToAssign) {
-      // Actualizar estado a "assigned" cuando se asigna un miembro del equipo
-      await handleUpdateStatus(opportunityToAssign.id, "assigned")
+  const handleAssignTeamMember = async (memberId: string) => {
+    if (!opportunityToAssign) return
+
+    // Actualización optimista: actualizar UI inmediatamente
+    const previousOpportunities = [...opportunities]
+    setUpdatingIds((prev) => new Set(prev).add(opportunityToAssign.id))
+
+    try {
+      // Actualizar assigned_user_id y status en Supabase
+      const updatedOpportunity = await updateOpportunityAssignment(opportunityToAssign.id, memberId)
       
-      // También actualizar el assignee localmente (esto debería venir de la DB en el futuro)
-      setOpportunities((prev) =>
-        prev.map((opp) =>
-          opp.id === opportunityToAssign.id
-            ? { ...opp, assignee: teamMember, status: "assigned" }
-            : opp
+      if (updatedOpportunity) {
+        // Actualizar con los datos reales de la DB
+        setOpportunities((prev) =>
+          prev.map((opp) => (opp.id === opportunityToAssign.id ? updatedOpportunity : opp))
         )
-      )
-      setRecommendationModalOpen(false)
-      setOpportunityToAssign(null)
+        toast.success(`Opportunity assigned successfully`)
+        setRecommendationModalOpen(false)
+        setOpportunityToAssign(null)
+      } else {
+        throw new Error('Failed to update opportunity assignment')
+      }
+    } catch (error: any) {
+      // Revertir cambio en caso de error
+      setOpportunities(previousOpportunities)
+      const errorMessage = error?.message || error?.details || 'Unknown error occurred'
+      toast.error(`Failed to assign opportunity: ${errorMessage}`)
+      console.error('Error assigning team member:', {
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint,
+        code: error?.code,
+        opportunityId: opportunityToAssign.id,
+        memberId,
+        fullError: error,
+      })
+    } finally {
+      setUpdatingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(opportunityToAssign.id)
+        return next
+      })
     }
   }
 

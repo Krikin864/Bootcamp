@@ -9,9 +9,10 @@ import { Badge } from "@/components/ui/badge"
 import { getTeamMembers, type TeamMember } from "@/services/members"
 import AddTeamMemberModal from "@/components/add-team-member-modal"
 import { toast } from "sonner"
+import { useSidebarState } from "@/hooks/use-sidebar-state"
 
 export default function TeamPage() {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const { isOpen: sidebarOpen, toggle: toggleSidebar } = useSidebarState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -45,7 +46,7 @@ export default function TeamPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  onClick={toggleSidebar}
                   className="text-foreground hover:bg-secondary"
                 >
                   <Menu className="h-5 w-5" />

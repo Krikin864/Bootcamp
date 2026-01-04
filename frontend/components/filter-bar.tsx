@@ -15,14 +15,14 @@ interface FilterBarProps {
   sortBy?: string
   setFilters: (filters: any) => void
   setSortBy?: (sort: string) => void
+  hideSortBy?: boolean
 }
 
-export default function FilterBar({ filters, sortBy = "recent", setFilters, setSortBy }: FilterBarProps) {
+export default function FilterBar({ filters, sortBy = "recent", setFilters, setSortBy, hideSortBy = false }: FilterBarProps) {
   const urgencyOptions = ["High", "Medium", "Low"]
   const skillOptions = SKILLS
   const teamOptions = TEAM_MEMBERS.map((member) => member.name)
   const sortOptions = [
-    { value: "recent", label: "Most Recent" },
     { value: "oldest", label: "Oldest First" },
     { value: "urgency-high", label: "Highest Urgency" },
     { value: "urgency-low", label: "Lowest Urgency" },
@@ -40,7 +40,10 @@ export default function FilterBar({ filters, sortBy = "recent", setFilters, setS
       <div className="flex items-center gap-3 flex-wrap">
         <span className="text-sm font-medium text-foreground">Filters:</span>
         <div className="flex flex-wrap gap-3">
-          <Select value={filters.urgency || "all"} onValueChange={(v) => setFilters({ ...filters, urgency: v })}>
+          <Select 
+            value={filters.urgency === "" ? "all" : filters.urgency} 
+            onValueChange={(v) => setFilters({ ...filters, urgency: v === "all" ? "" : v })}
+          >
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Urgency" />
             </SelectTrigger>
@@ -85,18 +88,20 @@ export default function FilterBar({ filters, sortBy = "recent", setFilters, setS
             </SelectContent>
           </Select>
 
-          <Select value={sortBy || "recent"} onValueChange={(v) => setSortBy?.(v)}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Sort By" />
-            </SelectTrigger>
-            <SelectContent>
-              {sortOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {!hideSortBy && (
+            <Select value={sortBy || "recent"} onValueChange={(v) => setSortBy?.(v)}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Sort By" />
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {hasActiveFilters && (

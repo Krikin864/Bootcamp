@@ -99,3 +99,24 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
   }
 }
 
+/**
+ * Obtiene el conteo total de miembros del equipo
+ */
+export async function getTeamMembersCount(): Promise<number> {
+  try {
+    const { count, error } = await supabase
+      .from('Profiles')
+      .select('*', { count: 'exact', head: true })
+
+    if (error) {
+      console.error('Error counting team members:', error)
+      throw error
+    }
+
+    return count || 0
+  } catch (error) {
+    console.error('Error in getTeamMembersCount:', error)
+    throw error
+  }
+}
+

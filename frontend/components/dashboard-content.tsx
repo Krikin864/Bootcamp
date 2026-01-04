@@ -1,12 +1,13 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import KanbanBoard from "@/components/kanban-board"
 import StatsCard from "@/components/stats-card"
 import FilterBar from "@/components/filter-bar"
 import NewOpportunityModal from "@/components/new-opportunity-modal"
 import { TrendingUp, Users, Zap, Target, Plus, Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { TEAM_MEMBERS } from "@/lib/team-data"
+import { getTotalOpportunitiesCount, getActiveOpportunitiesCount } from "@/services/opportunities"
+import { getTeamMembersCount } from "@/services/members"
 
 export default function DashboardContent({ onSidebarToggle }: { onSidebarToggle: () => void }) {
   const [showNewOpportunity, setShowNewOpportunity] = useState(false)
@@ -15,13 +16,37 @@ export default function DashboardContent({ onSidebarToggle }: { onSidebarToggle:
     skill: "",
     assignedTeam: "",
   })
-
-  const stats = [
-    { label: "Total Opportunities", value: "48", icon: Target },
-    { label: "Active Leads", value: "23", icon: Zap },
-    { label: "Team Members", value: String(TEAM_MEMBERS.length), icon: Users },
+  const [stats, setStats] = useState([
+    { label: "Total Opportunities", value: "0", icon: Target },
+    { label: "Active Leads", value: "0", icon: Zap },
+    { label: "Team Members", value: "0", icon: Users },
     { label: "AI Summaries", value: "156", icon: TrendingUp },
-  ]
+  ])
+
+  // Cargar estadísticas reales desde Supabase
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const [totalOpps, activeOpps, teamMembers] = await Promise.all([
+          getTotalOpportunitiesCount(),
+          getActiveOpportunitiesCount(),
+          getTeamMembersCount(),
+        ])
+
+        setStats([
+          { label: "Total Opportunities", value: String(totalOpps), icon: Target },
+          { label: "Active Leads", value: String(activeOpps), icon: Zap },
+          { label: "Team Members", value: String(teamMembers), icon: Users },
+          { label: "AI Summaries", value: "156", icon: TrendingUp }, // Mantener mock
+        ])
+      } catch (error) {
+        console.error('Error loading stats:', error)
+        // Mantener valores por defecto en caso de error
+      }
+    }
+
+    loadStats()
+  }, [])
 
   return (
     <div className="p-6 space-y-6">
@@ -47,7 +72,7 @@ export default function DashboardContent({ onSidebarToggle }: { onSidebarToggle:
         ))}
       </div>
 
-      <FilterBar filters={filters} setFilters={setFilters} />
+      <FilterBar filters={filters} setFilters={setFilters} hideSortBy />
 
       <div className="space-y-4">
         <h2 className="text-xl font-semibold text-foreground">Opportunities Pipeline</h2>

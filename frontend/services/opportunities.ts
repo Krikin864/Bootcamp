@@ -324,3 +324,197 @@ export async function updateOpportunityStatus(
   }
 }
 
+/**
+ * Obtiene el conteo total de oportunidades
+ */
+export async function getTotalOpportunitiesCount(): Promise<number> {
+  try {
+    const { count, error } = await supabase
+      .from('Opportunities')
+      .select('*', { count: 'exact', head: true })
+
+    if (error) {
+      console.error('Error counting opportunities:', error)
+      throw error
+    }
+
+    return count || 0
+  } catch (error) {
+    console.error('Error in getTotalOpportunitiesCount:', error)
+    throw error
+  }
+}
+
+/**
+ * Actualiza la asignación de una oportunidad (assigned_user_id y status)
+ * @param id - ID de la oportunidad
+ * @param assignedUserId - ID del usuario asignado (UUID de Profiles)
+ * @returns La oportunidad actualizada o null si hay error
+ */
+export async function updateOpportunityAssignment(
+  id: string,
+  assignedUserId: string
+): Promise<Opportunity | null> {
+  try {
+    // Validar que el ID no esté vacío
+    if (!id || id.trim() === '') {
+      throw new Error('Opportunity ID is required')
+    }
+
+    // Validar que el assignedUserId no esté vacío
+    if (!assignedUserId || assignedUserId.trim() === '') {
+      throw new Error('Assigned user ID is required')
+    }
+
+    console.log(`[updateOpportunityAssignment] Updating opportunity:`, {
+      opportunityId: id,
+      assignedUserId,
+      newStatus: 'assigned',
+      table: 'Opportunities',
+      columns: ['assigned_user_id', 'status'],
+    })
+
+    // Actualizar assigned_user_id y status a 'assigned' en una sola operación
+    const { data, error } = await supabase
+      .from('Opportunities')
+      .update({ 
+        assigned_user_id: assignedUserId,
+        status: 'assigned'
+      })
+      .eq('id', id)
+      .select(`
+        id,
+        client_id,
+        assigned_user_id,
+        status,
+        original_message,
+        ai_summary,
+        urgency,
+        created_at,
+        Clients!client_id (
+          name,
+          company
+        ),
+        Profiles!assigned_user_id (
+          full_name
+        )
+      `)
+      .single()
+
+    if (error) {
+      console.error('❌ Error updating opportunity assignment:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        opportunityId: id,
+        assignedUserId,
+        fullError: JSON.stringify(error, null, 2),
+      })
+      throw error
+    }
+
+    if (!data) {
+      return null
+    }
+
+    // Obtener skills para esta oportunidad
+    const { data: opportunitiesWithSkillId } = await supabase
+      .from('Opportunities')
+      .select('id, required_skill_id')
+      .eq('id', id)
+
+    let skills: { id: string; name: string }[] = []
+    if (opportunitiesWithSkillId && opportunitiesWithSkillId[0]?.required_skill_id) {
+      const { data: skillData } = await supabase
+        .from('Skills')
+        .select('id, name')
+        .eq('id', opportunitiesWithSkillId[0].required_skill_id)
+
+      if (skillData && skillData.length > 0) {
+        skills = skillData
+      }
+    }
+
+    // Intentar también desde tabla de relación
+    if (skills.length === 0) {
+      const { data: opportunitySkills } = await supabase
+        .from('opportunity_skills')
+        .select(`
+          skill:skill_id (
+            id,
+            name
+          )
+        `)
+        .eq('opportunity_id', id)
+
+      if (opportunitySkills && opportunitySkills.length > 0) {
+        skills = opportunitySkills.map((os: any) => os.skill).filter(Boolean)
+      }
+    }
+
+    const skillNames = skills.map(s => s.name)
+    const client = (data as any).Clients || (data as any).client || null
+    const assignedUser = (data as any).Profiles || (data as any).assigned_user || null
+
+    return {
+      id: data.id,
+      clientName: client?.name || 'Unknown Client',
+      company: client?.company || 'Unknown Company',
+      summary: data.original_message || '',
+      requiredSkill: skillNames.length > 0 ? (skillNames.length === 1 ? skillNames[0] : skillNames) : [],
+      assignee: assignedUser?.full_name || '',
+      status: (data.status?.toLowerCase() || 'new') as "new" | "assigned" | "done",
+      urgency: (data.urgency?.toLowerCase() || 'medium') as "high" | "medium" | "low",
+      aiSummary: data.ai_summary || '',
+      createdDate: new Date(data.created_at).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    }
+  } catch (error: any) {
+    const errorInfo: Record<string, any> = {
+      message: error?.message || 'Unknown error',
+      opportunityId: id,
+      assignedUserId,
+    }
+
+    if (error?.details) errorInfo.details = error.details
+    if (error?.hint) errorInfo.hint = error.hint
+    if (error?.code) errorInfo.code = error.code
+    if (error?.stack) errorInfo.stack = error.stack
+    
+    try {
+      errorInfo.fullError = JSON.stringify(error, Object.getOwnPropertyNames(error), 2)
+    } catch {
+      errorInfo.fullError = String(error)
+    }
+
+    console.error('❌ Error in updateOpportunityAssignment:', errorInfo)
+    throw error
+  }
+}
+
+/**
+ * Obtiene el conteo de oportunidades activas (status = 'assigned')
+ */
+export async function getActiveOpportunitiesCount(): Promise<number> {
+  try {
+    const { count, error } = await supabase
+      .from('Opportunities')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'assigned')
+
+    if (error) {
+      console.error('Error counting active opportunities:', error)
+      throw error
+    }
+
+    return count || 0
+  } catch (error) {
+    console.error('Error in getActiveOpportunitiesCount:', error)
+    throw error
+  }
+}
+

@@ -44,7 +44,7 @@ export async function getOpportunities(): Promise<Opportunity[]> {
     // Nota: La sintaxis de Supabase para relaciones depende de cómo estén configuradas las foreign keys
     // Intentamos primero con la sintaxis estándar, si falla, haremos queries separadas
     const { data: opportunities, error: opportunitiesError } = await supabase
-      .from('Opportunities')
+      .from("Opportunities")
       .select(`
         id,
         client_id,
@@ -71,7 +71,7 @@ export async function getOpportunities(): Promise<Opportunity[]> {
       
       // Query sin relaciones
       const { data: oppsWithoutRelations, error: simpleError } = await supabase
-        .from('Opportunities')
+        .from("Opportunities")
         .select('id, client_id, assigned_user_id, status, original_message, ai_summary, urgency, created_at')
         .order('created_at', { ascending: false })
 
@@ -88,8 +88,8 @@ export async function getOpportunities(): Promise<Opportunity[]> {
         const userIds = [...new Set(opportunitiesData.map((opp: any) => opp.assigned_user_id).filter(Boolean))]
 
         const [clientsResult, profilesResult] = await Promise.all([
-          clientIds.length > 0 ? supabase.from('Clients').select('id, name, company').in('id', clientIds) : { data: [], error: null },
-          userIds.length > 0 ? supabase.from('Profiles').select('id, full_name').in('id', userIds) : { data: [], error: null }
+          clientIds.length > 0 ? supabase.from("Clients").select('id, name, company').in('id', clientIds) : { data: [], error: null },
+          userIds.length > 0 ? supabase.from("Profiles").select('id, full_name').in('id', userIds) : { data: [], error: null }
         ])
 
         const clientsMap = new Map((clientsResult.data || []).map((c: any) => [c.id, c]))
@@ -133,7 +133,7 @@ export async function getOpportunities(): Promise<Opportunity[]> {
     if (skillsError || !opportunitySkills || opportunitySkills.length === 0) {
       // Intentar obtener skills desde el campo required_skill_id
       const { data: opportunitiesWithSkillId } = await supabase
-        .from('Opportunities')
+        .from("Opportunities")
         .select('id, required_skill_id')
         .in('id', opportunityIds)
 
@@ -144,7 +144,7 @@ export async function getOpportunities(): Promise<Opportunity[]> {
 
         if (skillIds.length > 0) {
           const { data: skills } = await supabase
-            .from('Skills')
+            .from("Skills")
             .select('id, name')
             .in('id', skillIds)
 
@@ -232,7 +232,7 @@ export async function updateOpportunityStatus(
 ): Promise<Opportunity | null> {
   try {
     const { data, error } = await supabase
-      .from('Opportunities')
+      .from("Opportunities")
       .update({ status: newStatus })
       .eq('id', id)
       .select(`
@@ -265,7 +265,7 @@ export async function updateOpportunityStatus(
 
     // Obtener skills para esta oportunidad
     const { data: opportunitiesWithSkillId } = await supabase
-      .from('Opportunities')
+      .from("Opportunities")
       .select('id, required_skill_id')
       .eq('id', id)
 
@@ -330,7 +330,7 @@ export async function updateOpportunityStatus(
 export async function getTotalOpportunitiesCount(): Promise<number> {
   try {
     const { count, error } = await supabase
-      .from('Opportunities')
+      .from("Opportunities")
       .select('*', { count: 'exact', head: true })
 
     if (error) {
@@ -376,7 +376,7 @@ export async function updateOpportunityAssignment(
 
     // Actualizar assigned_user_id y status a 'assigned' en una sola operación
     const { data, error } = await supabase
-      .from('Opportunities')
+      .from("Opportunities")
       .update({ 
         assigned_user_id: assignedUserId,
         status: 'assigned'
@@ -412,7 +412,7 @@ export async function updateOpportunityAssignment(
 
     // Obtener skills para esta oportunidad
     const { data: opportunitiesWithSkillId } = await supabase
-      .from('Opportunities')
+      .from("Opportunities")
       .select('id, required_skill_id')
       .eq('id', id)
 
@@ -525,7 +525,7 @@ export async function updateOpportunityDetails(
     })
 
     const { data, error } = await supabase
-      .from('Opportunities')
+      .from("Opportunities")
       .update(updateData)
       .eq('id', id)
       .select(`
@@ -615,12 +615,120 @@ export async function updateOpportunityDetails(
 }
 
 /**
+ * Crea una nueva oportunidad
+ * @param clientId - ID del cliente (UUID)
+ * @param originalMessage - Mensaje original del cliente
+ * @param aiSummary - Resumen generado por AI
+ * @param urgency - Urgencia: "high", "medium", o "low"
+ * @param requiredSkillId - ID de la skill requerida (UUID) o null
+ * @returns La oportunidad creada
+ */
+export async function createOpportunity(
+  clientId: string,
+  originalMessage: string,
+  aiSummary: string,
+  urgency: "high" | "medium" | "low" = "medium",
+  requiredSkillId: string | null = null
+): Promise<Opportunity> {
+  try {
+    // Validar que clientId sea un UUID válido
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!uuidRegex.test(clientId)) {
+      throw new Error(`Invalid UUID format for client_id: ${clientId}`)
+    }
+
+    // Validar requiredSkillId si se proporciona
+    if (requiredSkillId && !uuidRegex.test(requiredSkillId)) {
+      throw new Error(`Invalid UUID format for required_skill_id: ${requiredSkillId}`)
+    }
+
+    const { data, error } = await supabase
+      .from("Opportunities")
+      .insert({
+        client_id: clientId,
+        original_message: originalMessage.trim(),
+        ai_summary: aiSummary.trim(),
+        urgency: urgency.toLowerCase(),
+        status: 'New',
+        required_skill_id: requiredSkillId,
+        created_at: new Date().toISOString(),
+      })
+      .select(`
+        id,
+        client_id,
+        assigned_user_id,
+        status,
+        original_message,
+        ai_summary,
+        urgency,
+        created_at,
+        required_skill_id,
+        Clients!client_id (
+          name,
+          company
+        ),
+        Profiles!assigned_user_id (
+          full_name
+        )
+      `)
+      .single()
+
+    if (error) {
+      console.error('Error completo:', error)
+      throw error
+    }
+
+    if (!data) {
+      throw new Error('Failed to create opportunity')
+    }
+
+    // Obtener skills para esta oportunidad
+    let skills: { id: string; name: string }[] = []
+    
+    if (data.required_skill_id) {
+      const { data: skillData } = await supabase
+        .from("Skills")
+        .select('id, name')
+        .eq('id', data.required_skill_id)
+
+      if (skillData && skillData.length > 0) {
+        skills = skillData
+      }
+    }
+
+    const skillNames = skills.map(s => s.name)
+    const client = (data as any).Clients || (data as any).client || null
+    const assignedUser = (data as any).Profiles || (data as any).assigned_user || null
+
+    return {
+      id: data.id,
+      clientName: client?.name || 'Unknown Client',
+      company: client?.company || 'Unknown Company',
+      summary: data.original_message || '',
+      requiredSkill: skillNames.length > 0 ? (skillNames.length === 1 ? skillNames[0] : skillNames) : [],
+      assignee: assignedUser?.full_name || '',
+      status: (data.status?.toLowerCase() || 'new') as "new" | "assigned" | "done",
+      urgency: (data.urgency?.toLowerCase() || 'medium') as "high" | "medium" | "low",
+      aiSummary: data.ai_summary || '',
+      createdDate: new Date(data.created_at).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    }
+  } catch (error: any) {
+    console.error('Error completo:', error)
+    throw error
+  }
+}
+
+/**
  * Obtiene el conteo de oportunidades activas (status = 'assigned')
  */
 export async function getActiveOpportunitiesCount(): Promise<number> {
   try {
     const { count, error } = await supabase
-      .from('Opportunities')
+      .from("Opportunities")
       .select('*', { count: 'exact', head: true })
       .eq('status', 'assigned')
 

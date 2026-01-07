@@ -1,11 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sparkles, Loader2, ArrowLeft, Edit2 } from "lucide-react"
+import { getSkills, type Skill } from "@/services/skills"
+import { findOrCreateClient } from "@/services/clients"
+import { createOpportunity, type Opportunity } from "@/services/opportunities"
+import { toast } from "sonner"
 
 interface AIReviewOverlayProps {
   clientName: string
@@ -18,47 +22,84 @@ interface AIReviewOverlayProps {
 export default function AIReviewOverlay({ clientName, company, clientText, onBack, onComplete }: AIReviewOverlayProps) {
   const [isProcessing, setIsProcessing] = useState(true)
   const [summary, setSummary] = useState("")
-  const [skill, setSkill] = useState("")
+  const [skillId, setSkillId] = useState("none")
   const [urgency, setUrgency] = useState("")
   const [showResults, setShowResults] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
+  const [skills, setSkills] = useState<Skill[]>([])
+  const [isSaving, setIsSaving] = useState(false)
 
-  useState(() => {
+  // Cargar skills desde la DB
+  useEffect(() => {
+    async function loadSkills() {
+      try {
+        const skillsData = await getSkills()
+        setSkills(skillsData)
+      } catch (error) {
+        console.error('Error loading skills:', error)
+      }
+    }
+
+    loadSkills()
+  }, [])
+
+  // Simular procesamiento de AI
+  useEffect(() => {
     const timer = setTimeout(() => {
       setSummary(
         "Client needs expert support to implement a modern frontend solution with React and TypeScript for their upcoming product launch.",
       )
-      setSkill("React")
+      // Buscar skill "React" por nombre y establecer su ID
+      const reactSkill = skills.find(s => s.name.toLowerCase() === "react")
+      setSkillId(reactSkill ? reactSkill.id : "none")
       setUrgency("High")
       setShowResults(true)
       setIsProcessing(false)
     }, 2000)
 
     return () => clearTimeout(timer)
-  }, [])
+  }, [skills])
 
-  const handleConfirm = () => {
-    const newOpportunity = {
-      id: Date.now().toString(),
-      clientName,
-      company,
-      summary,
-      requiredSkill: skill,
-      assignee: "",
-      status: "new" as const,
-      urgency: urgency.toLowerCase() as "high" | "medium" | "low",
-      aiSummary: summary,
-      isProcessing: false,
+  const handleConfirm = async () => {
+    if (!summary || skillId === "none" || !urgency) {
+      toast.error('Please fill in all fields')
+      return
     }
 
-    window.dispatchEvent(
-      new CustomEvent("addOpportunity", {
-        detail: newOpportunity,
-      }),
-    )
+    try {
+      setIsSaving(true)
 
-    onComplete()
+      // 1. Buscar o crear el cliente
+      const client = await findOrCreateClient(clientName, company)
+
+      // 2. Crear la oportunidad en Supabase
+      const newOpportunity = await createOpportunity(
+        client.id,
+        clientText,
+        summary,
+        urgency.toLowerCase() as "high" | "medium" | "low",
+        skillId !== "none" ? skillId : null
+      )
+
+      // 3. Disparar evento para actualizar el Kanban
+      window.dispatchEvent(
+        new CustomEvent("addOpportunity", {
+          detail: newOpportunity,
+        }),
+      )
+
+      toast.success('Opportunity created successfully!')
+      onComplete()
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Failed to create opportunity'
+      toast.error(`Error: ${errorMessage}`)
+      console.error('Error creating opportunity:', error)
+    } finally {
+      setIsSaving(false)
+    }
   }
+
+  const selectedSkill = skills.find(s => s.id === skillId)
 
   return (
     <>
@@ -122,30 +163,21 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
                       Required Skill
                     </Label>
                     {isEditing ? (
-                      <Select value={skill} onValueChange={setSkill}>
+                      <Select value={skillId} onValueChange={setSkillId}>
                         <SelectTrigger id="skill" className="mt-1 h-9 text-sm">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {[
-                            "React",
-                            "Python",
-                            "DevOps",
-                            "Design",
-                            "Product",
-                            "Sales",
-                            "Legal",
-                            "Backend",
-                            "Frontend",
-                          ].map((s) => (
-                            <SelectItem key={s} value={s}>
-                              {s}
+                          <SelectItem value="none">No skill</SelectItem>
+                          {skills.map((skill) => (
+                            <SelectItem key={skill.id} value={skill.id}>
+                              {skill.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     ) : (
-                      <p className="text-sm font-medium mt-1 text-foreground">{skill}</p>
+                      <p className="text-sm font-medium mt-1 text-foreground">{selectedSkill?.name || 'No skill'}</p>
                     )}
                   </div>
 
@@ -182,14 +214,27 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
           </div>
 
           <div className="flex gap-2 pt-4 border-t border-border mt-4">
-            <Button variant="outline" onClick={onBack} className="flex-1 bg-transparent">
+            <Button variant="outline" onClick={onBack} className="flex-1 bg-transparent" disabled={isSaving}>
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back
             </Button>
             {showResults && (
-              <Button onClick={handleConfirm} disabled={!summary || !skill || !urgency} className="flex-1 gap-2">
-                <Sparkles className="h-4 w-4" />
-                Confirm & Create
+              <Button 
+                onClick={handleConfirm} 
+                disabled={!summary || skillId === "none" || !urgency || isSaving} 
+                className="flex-1 gap-2"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Creating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4" />
+                    Confirm & Create
+                  </>
+                )}
               </Button>
             )}
           </div>

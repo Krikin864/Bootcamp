@@ -17,7 +17,7 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
   try {
     // Obtener todos los perfiles
     const { data: profiles, error: profilesError } = await supabase
-      .from('Profiles')
+      .from("Profiles")
       .select('id, full_name, email, role')
       .order('full_name', { ascending: true })
 
@@ -61,7 +61,7 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
 
     // Obtener estadísticas de oportunidades para cada miembro
     const { data: opportunities, error: oppError } = await supabase
-      .from('Opportunities')
+      .from("Opportunities")
       .select('id, assigned_user_id, status')
       .in('assigned_user_id', profileIds)
 
@@ -105,7 +105,7 @@ export async function getTeamMembers(): Promise<TeamMember[]> {
 export async function getTeamMembersCount(): Promise<number> {
   try {
     const { count, error } = await supabase
-      .from('Profiles')
+      .from("Profiles")
       .select('*', { count: 'exact', head: true })
 
     if (error) {

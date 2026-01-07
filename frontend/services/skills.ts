@@ -11,7 +11,7 @@ export interface Skill {
 export async function getSkills(): Promise<Skill[]> {
   try {
     const { data: skills, error } = await supabase
-      .from('Skills')
+      .from("Skills")
       .select('id, name')
       .order('name', { ascending: true })
 

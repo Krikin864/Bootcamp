@@ -34,11 +34,28 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
     loadOpportunities()
   }, [])
 
-  // Escuchar eventos de nuevas oportunidades
+  // Escuchar eventos de nuevas oportunidades y refrescar datos
   useEffect(() => {
-    const handleAddOpportunity = (event: Event) => {
+    const handleAddOpportunity = async (event: Event) => {
       const customEvent = event as CustomEvent
-      setOpportunities((prev) => [...prev, customEvent.detail])
+      const newOpportunity = customEvent.detail as Opportunity
+      
+      // Agregar la nueva oportunidad al estado
+      setOpportunities((prev) => {
+        // Verificar que no esté ya en la lista
+        if (prev.find(opp => opp.id === newOpportunity.id)) {
+          return prev
+        }
+        return [...prev, newOpportunity]
+      })
+
+      // También refrescar desde la DB para asegurar que tenemos los datos más actualizados
+      try {
+        const data = await getOpportunities()
+        setOpportunities(data)
+      } catch (error) {
+        console.error('Error refreshing opportunities:', error)
+      }
     }
 
     const handleFinishProcessing = (event: Event) => {

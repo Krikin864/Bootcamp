@@ -266,7 +266,6 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
             onAssignClick={handleAssignClick}
             onMoveToComplete={handleMoveToComplete}
             onArchive={handleArchive}
-            onCancel={handleCancel}
             updatingIds={updatingIds}
           />
         ))}
@@ -282,6 +281,7 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
             setSelectedOpportunity(null)
           }}
           onSaveEdits={handleSaveEdits}
+          onCancel={handleCancel}
         />
       )}
 

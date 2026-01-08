@@ -9,14 +9,16 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getSkills, type Skill } from "@/services/skills"
-import { updateOpportunityDetails, type Opportunity } from "@/services/opportunities"
+import { updateOpportunityDetails, updateOpportunityStatus, type Opportunity } from "@/services/opportunities"
 import { toast } from "sonner"
+import { AlertTriangle } from "lucide-react"
 
 interface OpportunityDetailsModalProps {
   opportunity: Opportunity | null
   onClose: () => void
   onAssignClick: () => void
   onSaveEdits?: (updatedOpportunity: Opportunity) => void
+  onCancel?: (opportunityId: string) => void
 }
 
 export default function OpportunityDetailsModal({
@@ -24,6 +26,7 @@ export default function OpportunityDetailsModal({
   onClose,
   onAssignClick,
   onSaveEdits,
+  onCancel,
 }: OpportunityDetailsModalProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -31,11 +34,11 @@ export default function OpportunityDetailsModal({
   const [isLoadingSkills, setIsLoadingSkills] = useState(false)
   const [editedValues, setEditedValues] = useState({
     summary: "",
-    skillId: "none", // Usar "none" en lugar de "" para evitar el error del Select
+    skillId: "none", // Use "none" instead of "" to avoid Select component error
     urgency: "",
   })
 
-  // Cargar skills desde la base de datos cuando se abre el modal en modo edición
+  // Load skills from database when modal opens in edit mode
   useEffect(() => {
     async function loadSkills() {
       if (!opportunity || !isEditing) return
@@ -71,8 +74,6 @@ export default function OpportunityDetailsModal({
 
     loadSkills()
   }, [opportunity, isEditing])
-
-  if (!opportunity) return null
 
   const urgencyColors = {
     high: "bg-red-500/20 text-red-600",
@@ -144,7 +145,7 @@ export default function OpportunityDetailsModal({
           throw new Error('Failed to update opportunity')
         }
       } else {
-        // No hay cambios, solo cerrar el modo edición
+        // No changes, just close edit mode
         setIsEditing(false)
       }
     } catch (error: any) {
@@ -160,9 +161,11 @@ export default function OpportunityDetailsModal({
     ? opportunity.requiredSkill
     : [opportunity.requiredSkill]
 
+  if (!opportunity) return null
+
   return (
     <Dialog open={!!opportunity} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Opportunity Details</DialogTitle>
         </DialogHeader>
@@ -206,14 +209,14 @@ export default function OpportunityDetailsModal({
 
             {!isEditing ? (
               <div className="bg-secondary/50 p-4 rounded-lg border border-border">
-                <p className="text-foreground leading-relaxed">{opportunity.aiSummary}</p>
+                <p className="text-foreground leading-relaxed text-base">{opportunity.aiSummary}</p>
               </div>
             ) : (
               <Textarea
                 value={editedValues.summary}
                 onChange={(e) => setEditedValues((prev) => ({ ...prev, summary: e.target.value }))}
-                rows={3}
-                className="bg-secondary/50 border-border"
+                rows={4}
+                className="bg-secondary/50 border-border text-base"
                 disabled={isSaving}
               />
             )}
@@ -229,23 +232,23 @@ export default function OpportunityDetailsModal({
             {!isEditing ? (
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground block mb-2">Required Skills</label>
+                  <label className="text-sm font-medium text-muted-foreground block mb-2">Required Skills</label>
                   <div className="flex flex-wrap gap-2">
                     {currentSkills.length > 0 ? (
                       currentSkills.map((skill) => (
-                        <Badge key={skill} variant="secondary">
+                        <Badge key={skill} variant="secondary" className="text-sm">
                           {skill}
                         </Badge>
                       ))
                     ) : (
-                      <span className="text-sm text-muted-foreground italic">No skills assigned</span>
+                      <span className="text-base text-muted-foreground italic">No skills assigned</span>
                     )}
                   </div>
                 </div>
-                <div className="bg-secondary/50 p-3 rounded-lg border border-border">
-                  <label className="text-xs font-medium text-muted-foreground">Urgency</label>
-                  <div className="mt-2">
-                    <Badge className={`${urgencyColors[opportunity.urgency]}`}>
+                <div className="bg-secondary/50 p-4 rounded-lg border border-border">
+                  <label className="text-sm font-medium text-muted-foreground block mb-2">Urgency</label>
+                  <div>
+                    <Badge className={`${urgencyColors[opportunity.urgency]} text-sm`}>
                       {opportunity.urgency.charAt(0).toUpperCase() + opportunity.urgency.slice(1)}
                     </Badge>
                   </div>
@@ -355,6 +358,37 @@ export default function OpportunityDetailsModal({
               </>
             )}
           </div>
+          {/* Danger Zone - Only show for active opportunities */}
+          {opportunity && ['new', 'assigned', 'done'].includes(opportunity.status) && onCancel && (
+            <div className="space-y-3 pt-4 border-t border-destructive/20">
+              <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                  <h3 className="font-semibold text-foreground">Danger Zone</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  This action cannot be undone. Cancelling an opportunity will remove it from the active pipeline.
+                </p>
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    if (!opportunity) return
+                    try {
+                      await updateOpportunityStatus(opportunity.id, 'cancelled')
+                      toast.success('Opportunity cancelled successfully')
+                      onCancel(opportunity.id)
+                      onClose()
+                    } catch (error: any) {
+                      toast.error(`Failed to cancel opportunity: ${error.message || 'Unknown error'}`)
+                    }
+                  }}
+                  className="w-full sm:w-auto"
+                >
+                  Cancel Opportunity
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

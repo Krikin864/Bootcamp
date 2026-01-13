@@ -806,6 +806,32 @@ export async function getPendingActionCount(
 }
 
 /**
+ * Gets the count of high priority opportunities that can appear in the kanban board
+ * Specifically counts opportunities with urgency === 'high', status === 'new', and unassigned (assigned_user_id IS NULL)
+ * @returns The count of high priority, new, and unassigned opportunities
+ */
+export async function getHighPriorityCount(): Promise<number> {
+  try {
+    const { count, error } = await supabase
+      .from("Opportunities")
+      .select('*', { count: 'exact', head: true })
+      .eq('urgency', 'high')
+      .eq('status', 'new')
+      .is('assigned_user_id', null)
+
+    if (error) {
+      console.error('Error fetching high priority count:', error)
+      throw error
+    }
+
+    return count || 0
+  } catch (error) {
+    console.error('Error in getHighPriorityCount:', error)
+    throw error
+  }
+}
+
+/**
  * Gets the most frequent skill in open opportunities (status 'new' or 'assigned')
  */
 export async function getTopNeededSkill(): Promise<string> {

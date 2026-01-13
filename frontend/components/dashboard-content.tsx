@@ -4,9 +4,9 @@ import KanbanBoard from "@/components/kanban-board"
 import StatsCard from "@/components/stats-card"
 import FilterBar from "@/components/filter-bar"
 import NewOpportunityModal from "@/components/new-opportunity-modal"
-import { Clock, Code, Users, Plus } from "lucide-react"
+import { Flame, Code, Users, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { getPendingActionCount, getTopNeededSkill } from "@/services/opportunities"
+import { getHighPriorityCount, getTopNeededSkill } from "@/services/opportunities"
 import { getTeamAvailabilityPercentage } from "@/services/members"
 
 export default function DashboardContent() {
@@ -17,7 +17,7 @@ export default function DashboardContent() {
     assignedTeam: "",
   })
   const [stats, setStats] = useState([
-    { label: "Pending Action", value: "0", icon: Clock },
+    { label: "Critical Arrivals", value: "0", icon: Flame },
     { label: "Top Needed Skill", value: "Loading...", icon: Code },
     { label: "Team Availability", value: "0%", icon: Users },
   ])
@@ -25,14 +25,14 @@ export default function DashboardContent() {
   // Load real statistics from Supabase
   const loadStats = async () => {
     try {
-      const [pendingCount, topSkill, availability] = await Promise.all([
-        getPendingActionCount(),
+      const [highPriorityCount, topSkill, availability] = await Promise.all([
+        getHighPriorityCount(),
         getTopNeededSkill(),
         getTeamAvailabilityPercentage(),
       ])
 
       setStats([
-        { label: "Pending Action", value: String(pendingCount), icon: Clock },
+        { label: "Critical Arrivals", value: String(highPriorityCount), icon: Flame },
         { label: "Top Needed Skill", value: topSkill, icon: Code },
         { label: "Team Availability", value: `${availability}%`, icon: Users },
       ])
@@ -50,7 +50,7 @@ export default function DashboardContent() {
   // Listen for opportunity status changes to refresh stats
   useEffect(() => {
     const handleOpportunityStatusChanged = () => {
-      // Refresh stats when opportunity status changes to/from 'new'
+      // Refresh stats when opportunity status or urgency changes
       loadStats()
     }
 

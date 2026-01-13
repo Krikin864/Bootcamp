@@ -32,6 +32,8 @@ export default function OpportunityDetailsModal({
   const [isSaving, setIsSaving] = useState(false)
   const [skills, setSkills] = useState<Skill[]>([])
   const [isLoadingSkills, setIsLoadingSkills] = useState(false)
+  const [summaryError, setSummaryError] = useState<string>("")
+  const [skillError, setSkillError] = useState<string>("")
   const [editedValues, setEditedValues] = useState({
     summary: "",
     skillId: "none", // Use "none" instead of "" to avoid Select component error
@@ -87,11 +89,45 @@ export default function OpportunityDetailsModal({
       skillId: "none", // Will be set when skills are loaded
       urgency: opportunity.urgency,
     })
+    setSummaryError("") // Reset error when starting to edit
+    setSkillError("") // Reset skill error when starting to edit
     setIsEditing(true)
+  }
+
+  // Validate summary field
+  const validateSummary = (summary: string): boolean => {
+    const trimmedSummary = summary.trim()
+    if (trimmedSummary === "") {
+      setSummaryError("Summary cannot be empty")
+      return false
+    }
+    setSummaryError("")
+    return true
+  }
+
+  // Validate skill field
+  const validateSkill = (skillId: string): boolean => {
+    if (skillId === "none" || skillId.trim() === "") {
+      setSkillError("Skill is required")
+      return false
+    }
+    setSkillError("")
+    return true
   }
 
   const handleSaveEdits = async () => {
     if (!opportunity) return
+
+    // Validate summary before saving
+    const trimmedSummary = editedValues.summary.trim()
+    if (!validateSummary(trimmedSummary)) {
+      return // Stop if validation fails
+    }
+
+    // Validate skill before saving
+    if (!validateSkill(editedValues.skillId)) {
+      return // Stop if validation fails
+    }
 
     try {
       setIsSaving(true)
@@ -103,9 +139,9 @@ export default function OpportunityDetailsModal({
         required_skill_id?: string | null
       } = {}
 
-      // Only include fields that have changed
-      if (editedValues.summary !== opportunity.aiSummary) {
-        updates.ai_summary = editedValues.summary
+      // Only include fields that have changed (using trimmed value)
+      if (trimmedSummary !== opportunity.aiSummary) {
+        updates.ai_summary = trimmedSummary // Use trimmed value
       }
 
       if (editedValues.urgency !== opportunity.urgency) {
@@ -212,13 +248,36 @@ export default function OpportunityDetailsModal({
                 <p className="text-foreground leading-relaxed text-base">{opportunity.aiSummary}</p>
               </div>
             ) : (
-              <Textarea
-                value={editedValues.summary}
-                onChange={(e) => setEditedValues((prev) => ({ ...prev, summary: e.target.value }))}
-                rows={4}
-                className="bg-secondary/50 border-border text-base"
-                disabled={isSaving}
-              />
+              <div className="space-y-2">
+                <Textarea
+                  value={editedValues.summary}
+                  onChange={(e) => {
+                    const newValue = e.target.value
+                    setEditedValues((prev) => ({ ...prev, summary: newValue }))
+                    // Clear error when user starts typing
+                    if (summaryError && newValue.trim() !== "") {
+                      setSummaryError("")
+                    }
+                  }}
+                  onBlur={() => {
+                    // Validate on blur
+                    validateSummary(editedValues.summary)
+                  }}
+                  rows={4}
+                  className={`bg-secondary/50 text-base ${
+                    summaryError 
+                      ? "border-destructive focus-visible:ring-destructive" 
+                      : "border-border"
+                  }`}
+                  disabled={isSaving}
+                />
+                {summaryError && (
+                  <p className="text-sm text-destructive flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    {summaryError}
+                  </p>
+                )}
+              </div>
             )}
           </div>
 
@@ -266,23 +325,44 @@ export default function OpportunityDetailsModal({
                       <span className="text-sm text-muted-foreground">Loading skills...</span>
                     </div>
                   ) : (
-                    <Select
-                      value={editedValues.skillId}
-                      onValueChange={(value) => setEditedValues((prev) => ({ ...prev, skillId: value }))}
-                      disabled={isSaving}
-                    >
-                      <SelectTrigger id="modal-edit-skill" className="bg-secondary/50 border-border">
-                        <SelectValue placeholder="Select a skill" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No skill</SelectItem>
-                        {skills.map((skill) => (
-                          <SelectItem key={skill.id} value={skill.id}>
-                            {skill.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="space-y-2">
+                      <Select
+                        value={editedValues.skillId}
+                        onValueChange={(value) => {
+                          setEditedValues((prev) => ({ ...prev, skillId: value }))
+                          // Clear error when user selects a skill
+                          if (skillError && value !== "none" && value.trim() !== "") {
+                            setSkillError("")
+                          }
+                        }}
+                        disabled={isSaving}
+                      >
+                        <SelectTrigger 
+                          id="modal-edit-skill" 
+                          className={`bg-secondary/50 ${
+                            skillError 
+                              ? "border-destructive focus-visible:ring-destructive" 
+                              : "border-border"
+                          }`}
+                        >
+                          <SelectValue placeholder="Select a skill" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No skill</SelectItem>
+                          {skills.map((skill) => (
+                            <SelectItem key={skill.id} value={skill.id}>
+                              {skill.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {skillError && (
+                        <p className="text-sm text-destructive flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          {skillError}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
                 <div>
@@ -337,7 +417,7 @@ export default function OpportunityDetailsModal({
                 </Button>
                 <Button 
                   onClick={handleSaveEdits}
-                  disabled={isSaving}
+                  disabled={isSaving || editedValues.summary.trim() === "" || editedValues.skillId === "none"}
                 >
                   {isSaving ? (
                     <>

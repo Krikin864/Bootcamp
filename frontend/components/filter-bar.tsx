@@ -74,7 +74,7 @@ export default function FilterBar({ filters, sortBy = "recent", setFilters, setS
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-sm font-medium text-foreground">Filters:</span>
+        <span className="text-sm font-medium text-slate-800">Filters:</span>
         <div className="flex flex-wrap gap-3">
           <Select 
             value={filters.urgency === "" ? "all" : filters.urgency} 

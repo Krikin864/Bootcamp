@@ -65,17 +65,21 @@ export default function DashboardContent() {
   }, [])
 
   return (
-    <div className="space-y-4">
-      <div className="h-16 border-b border-border bg-card px-6 flex items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <Button onClick={() => setShowNewOpportunity(true)} className="gap-2" size="sm">
+    <div className="space-y-6 p-6 pt-4">
+      <div className="mt-4 mx-4 bg-white/70 backdrop-blur-md border border-white/40 rounded-[2rem] shadow-sm px-8 py-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
+        <Button 
+          onClick={() => setShowNewOpportunity(true)} 
+          className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all"
+          size="sm"
+        >
           <Plus className="h-4 w-4" />
           New Opportunity
         </Button>
       </div>
 
-      <div className="p-4 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="space-y-6 px-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {stats.map((stat) => (
             <StatsCard key={stat.label} {...stat} />
           ))}
@@ -83,8 +87,8 @@ export default function DashboardContent() {
 
         <FilterBar filters={filters} setFilters={setFilters} hideSortBy />
 
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">Opportunities Pipeline</h2>
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-slate-800 px-2">Opportunities Pipeline</h2>
           <KanbanBoard filters={filters} />
         </div>
 

@@ -85,13 +85,13 @@ export default function NewOpportunityModal({ open, onOpenChange }: NewOpportuni
 
   return (
     <Dialog open={open} onOpenChange={handleCloseAll}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Create New Opportunity</DialogTitle>
-          <DialogDescription>Enter client information to get started</DialogDescription>
+      <DialogContent className="max-w-3xl p-0 bg-white/80 backdrop-blur-xl border border-white/40 rounded-[2rem] shadow-[0_20px_60px_0_rgba(31,38,135,0.15)]">
+        <DialogHeader className="px-10 pt-10 pb-6">
+          <DialogTitle className="text-2xl font-bold text-slate-800">Create New Opportunity</DialogTitle>
+          <DialogDescription className="text-slate-600">Enter client information to get started</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="px-10 pb-10 space-y-6">
           <div className="relative">
             <Label htmlFor="client-name">Client Name</Label>
             <Input
@@ -110,7 +110,7 @@ export default function NewOpportunityModal({ open, onOpenChange }: NewOpportuni
               }}
             />
             {showSuggestions && clientSuggestions.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-auto">
+              <div className="absolute z-50 w-full mt-2 bg-white/90 backdrop-blur-xl border border-white/40 rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.12)] max-h-60 overflow-auto">
                 {clientSuggestions.map((client) => (
                   <button
                     key={client.id}
@@ -143,7 +143,7 @@ export default function NewOpportunityModal({ open, onOpenChange }: NewOpportuni
                 onClick={handleAnalyzeWithAI} 
                 disabled={!clientName || !company || !clientText} 
                 size="sm"
-                className="gap-2"
+                className="gap-2 rounded-2xl"
               >
                 <Plus className="h-4 w-4" />
                 Analyze with AI
@@ -159,9 +159,12 @@ export default function NewOpportunityModal({ open, onOpenChange }: NewOpportuni
             />
           </div>
 
-          <div className="flex gap-3 justify-end pt-4 border-t border-border">
-            <Button variant="outline" onClick={handleCloseAll}>
+          <div className="flex gap-4 justify-end pt-6 border-t border-white/30 -mx-10 -mb-10 px-10 pb-10">
+            <Button variant="outline" onClick={handleCloseAll} className="rounded-2xl border-white/40 bg-white/50">
               Cancel
+            </Button>
+            <Button onClick={handleAnalyzeWithAI} disabled={!clientName || !company || !clientText} className="rounded-2xl">
+              Analyze with AI
             </Button>
           </div>
         </div>

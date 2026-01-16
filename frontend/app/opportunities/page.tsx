@@ -234,31 +234,31 @@ export default function OpportunitiesPage() {
   })
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
+    <div className="flex h-screen bg-gradient-to-br from-[#d1d8e6] via-[#eef2f7] to-[#e2e8f0] text-foreground">
       <Sidebar open={sidebarOpen} />
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 overflow-hidden">
         <main className="flex-1 overflow-auto">
-          <div className="h-16 border-b border-border bg-card px-6 flex items-center justify-between gap-4">
-            <h1 className="text-2xl font-bold text-foreground">Opportunities History</h1>
+          <div className="h-16 mt-4 mx-4 bg-white/70 backdrop-blur-md border border-white/40 rounded-[2rem] shadow-sm px-6 flex items-center justify-between gap-4">
+            <h1 className="text-2xl font-bold text-slate-800">Opportunities History</h1>
             <div className="flex items-center gap-4 flex-1 max-w-md">
               <div className="flex items-center gap-2 flex-1 relative">
-                <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
+                <Search className="absolute left-3 h-4 w-4 text-slate-500 pointer-events-none" />
                 <Input
                   type="search"
                   placeholder="Search opportunities..."
-                  className="pl-10 border-0 bg-secondary placeholder:text-muted-foreground"
+                  className="pl-10 border-0 bg-white/50 backdrop-blur-sm placeholder:text-slate-500"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
             </div>
-            <Button className="gap-2" size="sm" onClick={() => setShowNewOpportunityModal(true)}>
+            <Button className="gap-2 rounded-2xl" size="sm" onClick={() => setShowNewOpportunityModal(true)}>
               <Plus className="h-4 w-4" />
               New Opportunity
             </Button>
           </div>
 
-          <div className="p-6 space-y-6">
+          <div className="p-6 pt-4 space-y-6 px-4">
             <div className="flex gap-4 items-end">
               <div className="flex gap-2">
                 <Button
@@ -281,7 +281,7 @@ export default function OpportunitiesPage() {
             </div>
 
             {/* History Page Filters - Organized in responsive grid */}
-            <div className="space-y-4 p-4 bg-card border border-border rounded-lg">
+            <div className="space-y-4 p-6 bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                 {/* Status Filter */}
                 <div className="space-y-2">
@@ -396,7 +396,7 @@ export default function OpportunitiesPage() {
 
               {/* Clear Filters Button */}
               {(filters.status || filters.urgency || filters.skill || filters.assignedTeam || filters.startDate || filters.endDate) && (
-                <div className="flex justify-end pt-2 border-t border-border">
+                <div className="flex justify-end pt-4 border-t border-white/30">
                   <Button
                     variant="outline"
                     onClick={() => setFilters({ status: "", urgency: "", skill: "", assignedTeam: "", startDate: "", endDate: "" })}
@@ -419,7 +419,7 @@ export default function OpportunitiesPage() {
                 {viewMode === "grid" ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[...Array(6)].map((_, i) => (
-                      <div key={i} className="bg-card border border-border rounded-lg p-4 space-y-3">
+                      <div key={i} className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] p-6 space-y-3 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]">
                         <Skeleton className="h-4 w-20" />
                         <Skeleton className="h-6 w-full" />
                         <Skeleton className="h-4 w-3/4" />
@@ -428,20 +428,20 @@ export default function OpportunitiesPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-card border border-border rounded-lg overflow-hidden">
+                  <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] overflow-hidden shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]">
                     <div className="overflow-x-auto">
                       <table className="w-full table-fixed">
-                        <thead className="bg-muted border-b border-border">
+                        <thead className="bg-white/50 backdrop-blur-sm border-b border-white/30">
                           <tr>
-                            <th className="pl-4 pr-2 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '12%' }}>Client</th>
-                            <th className="pl-4 pr-2 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '12%' }}>Company</th>
-                            <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '8%' }}>Date</th>
-                            <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '20%' }}>AI Summary</th>
-                            <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '11%' }}>Urgency</th>
-                            <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '15%' }}>Team Member</th>
-                            <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '11%' }}>Skill</th>
-                            <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '11%' }}>Status</th>
-                            <th className="px-4 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '5%' }}>Actions</th>
+                            <th className="pl-4 pr-2 py-2 text-left font-semibold text-slate-800 text-xs" style={{ width: '12%' }}>Client</th>
+                            <th className="pl-4 pr-2 py-2 text-left font-semibold text-slate-800 text-xs" style={{ width: '12%' }}>Company</th>
+                            <th className="px-4 py-2 text-left font-semibold text-slate-800 text-xs" style={{ width: '8%' }}>Date</th>
+                            <th className="px-4 py-2 text-left font-semibold text-slate-800 text-xs" style={{ width: '20%' }}>AI Summary</th>
+                            <th className="px-4 py-2 text-left font-semibold text-slate-800 text-xs" style={{ width: '11%' }}>Urgency</th>
+                            <th className="px-4 py-2 text-left font-semibold text-slate-800 text-xs" style={{ width: '15%' }}>Team Member</th>
+                            <th className="px-4 py-2 text-left font-semibold text-slate-800 text-xs" style={{ width: '11%' }}>Skill</th>
+                            <th className="px-4 py-2 text-left font-semibold text-slate-800 text-xs" style={{ width: '11%' }}>Status</th>
+                            <th className="px-4 py-2 text-left font-semibold text-slate-800 text-xs" style={{ width: '5%' }}>Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
@@ -465,11 +465,11 @@ export default function OpportunitiesPage() {
                 )}
               </div>
             ) : filteredAndSortedOpportunities.length === 0 ? (
-              <div className="bg-card border border-border rounded-lg p-12 text-center">
+              <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] p-12 text-center shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]">
                 <div className="max-w-md mx-auto space-y-4">
                   <div className="text-6xl mb-4">📋</div>
-                  <h3 className="text-xl font-semibold text-foreground">No opportunities yet</h3>
-                  <p className="text-muted-foreground">
+                  <h3 className="text-xl font-semibold text-slate-800">No opportunities yet</h3>
+                  <p className="text-slate-600">
                     Get started by creating your first opportunity. Add client information and let AI help you analyze their needs.
                   </p>
                   <Button className="gap-2 mt-4" onClick={() => setShowNewOpportunityModal(true)}>
@@ -491,10 +491,10 @@ export default function OpportunitiesPage() {
                 ))}
               </div>
             ) : (
-              <div className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] overflow-hidden shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]">
                 <div className="overflow-x-auto">
                   <table className="w-full table-fixed">
-                    <thead className="bg-muted border-b border-border">
+                    <thead className="bg-white/50 backdrop-blur-sm border-b border-white/30">
                       <tr>
                         <th className="pl-4 pr-2 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '12%' }}>Client</th>
                         <th className="pl-4 pr-2 py-2 text-left font-semibold text-foreground text-xs" style={{ width: '12%' }}>Company</th>

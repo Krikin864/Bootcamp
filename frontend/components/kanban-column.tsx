@@ -37,15 +37,15 @@ export default function KanbanColumn({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3">
-        <div className={`w-3 h-3 rounded-full ${columnColor}`}></div>
-        <h3 className="font-semibold text-foreground">{title}</h3>
-        <span className="ml-auto px-2 py-1 bg-secondary text-xs text-muted-foreground rounded">
+      <div className="flex items-center gap-3 px-2">
+        <div className={`w-3 h-3 rounded-full ${columnColor} shadow-sm`}></div>
+        <h3 className="font-semibold text-slate-800">{title}</h3>
+        <span className="ml-auto px-3 py-1 bg-white/70 backdrop-blur-sm text-xs text-slate-700 rounded-full shadow-sm border border-white/40">
           {opportunities.length}
         </span>
       </div>
 
-      <div className="space-y-3 min-h-96 bg-secondary/30 rounded-lg p-4">
+      <div className="space-y-4 min-h-96 bg-white/30 backdrop-blur-xl rounded-[2rem] p-5 border border-white/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]">
         {opportunities.length === 0 ? (
           <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">No opportunities</div>
         ) : (

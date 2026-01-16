@@ -123,6 +123,7 @@ export default function OpportunityDetailsModal({
   }
 
   const handleEditStart = () => {
+    if (!opportunity) return
     setEditedValues({
       summary: opportunity.aiSummary,
       skillId: "none", // Will be set when skills are loaded
@@ -232,24 +233,24 @@ export default function OpportunityDetailsModal({
     }
   }
 
+  if (!opportunity) return null
+
   const currentSkills = Array.isArray(opportunity.requiredSkill)
     ? opportunity.requiredSkill
     : [opportunity.requiredSkill]
 
-  if (!opportunity) return null
-
   return (
     <Dialog open={!!opportunity} onOpenChange={onClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Opportunity Details</DialogTitle>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 bg-white/80 backdrop-blur-xl border border-white/40 rounded-[2rem] shadow-[0_20px_60px_0_rgba(31,38,135,0.15)]">
+        <DialogHeader className="px-10 pt-10 pb-6">
+          <DialogTitle className="text-2xl font-bold text-slate-800">Opportunity Details</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
+        <div className="px-10 pb-10 space-y-8">
           {/* Client Info */}
-          <div className="space-y-3">
-            <h3 className="font-semibold text-foreground">Client Information</h3>
-            <div className="bg-secondary/50 p-4 rounded-lg border border-border space-y-2">
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">CLIENT INFORMATION</h3>
+            <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/40 space-y-4">
               <div>
                 <label className="text-xs font-medium text-muted-foreground">Name</label>
                 <p className="text-foreground font-semibold mt-1">{opportunity.clientName}</p>
@@ -262,12 +263,12 @@ export default function OpportunityDetailsModal({
           </div>
 
           {/* AI Summary - View and Edit Modes */}
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-foreground flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-accent" />
-                Summary
-                {!isEditing && <span className="text-xs font-normal text-muted-foreground">(AI-generated)</span>}
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                <Sparkles className="h-3 w-3" />
+                SUMMARY
+                {!isEditing && <span className="text-xs font-normal text-slate-400 normal-case">(AI-generated)</span>}
               </h3>
               {!isEditing && (
                 <Button
@@ -283,8 +284,8 @@ export default function OpportunityDetailsModal({
             </div>
 
             {!isEditing ? (
-              <div className="bg-secondary/50 p-4 rounded-lg border border-border">
-                <p className="text-foreground leading-relaxed text-base">{opportunity.aiSummary}</p>
+              <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/40">
+                <p className="text-slate-800 leading-relaxed text-base">{opportunity.aiSummary}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -303,10 +304,10 @@ export default function OpportunityDetailsModal({
                     validateSummary(editedValues.summary)
                   }}
                   rows={4}
-                  className={`bg-secondary/50 text-base ${
+                  className={`bg-white/50 backdrop-blur-sm text-base rounded-2xl border border-white/40 ${
                     summaryError 
                       ? "border-destructive focus-visible:ring-destructive" 
-                      : "border-border"
+                      : ""
                   }`}
                   disabled={isSaving}
                 />
@@ -321,11 +322,11 @@ export default function OpportunityDetailsModal({
           </div>
 
           {/* Requirements */}
-          <div className="space-y-3">
-            <h3 className="font-semibold text-foreground flex items-center gap-2">
-              <Zap className="h-4 w-4" />
-              Requirements
-              {!isEditing && <span className="text-xs font-normal text-muted-foreground">(Editable)</span>}
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+              <Zap className="h-3 w-3" />
+              REQUIREMENTS
+              {!isEditing && <span className="text-xs font-normal text-slate-400 normal-case">(Editable)</span>}
             </h3>
             {!isEditing ? (
               <div className="space-y-3">
@@ -334,17 +335,20 @@ export default function OpportunityDetailsModal({
                   <div className="flex flex-wrap gap-2">
                     {currentSkills.length > 0 ? (
                       currentSkills.map((skill) => (
-                        <Badge key={skill} variant="secondary" className="text-sm">
+                        <span 
+                          key={skill} 
+                          className="text-sm px-4 py-2 bg-white rounded-full text-slate-700 font-medium shadow-md border border-white/60"
+                        >
                           {skill}
-                        </Badge>
+                        </span>
                       ))
                     ) : (
-                      <span className="text-base text-muted-foreground italic">No skills assigned</span>
+                      <span className="text-base text-slate-600 italic">No skills assigned</span>
                     )}
                   </div>
                 </div>
-                <div className="bg-secondary/50 p-4 rounded-lg border border-border">
-                  <label className="text-sm font-medium text-muted-foreground block mb-2">Urgency</label>
+                <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/40">
+                  <label className="text-sm font-medium text-slate-600 block mb-2">Urgency</label>
                   <div>
                     <Badge className={`${urgencyColors[opportunity.urgency]} text-sm`}>
                       {opportunity.urgency.charAt(0).toUpperCase() + opportunity.urgency.slice(1)}
@@ -359,7 +363,7 @@ export default function OpportunityDetailsModal({
                     Required Skill
                   </Label>
                   {isLoadingSkills ? (
-                    <div className="flex items-center gap-2 p-3 bg-secondary/50 border border-border rounded-lg">
+                    <div className="flex items-center gap-2 p-4 bg-white/50 backdrop-blur-sm border border-white/40 rounded-2xl">
                       <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                       <span className="text-sm text-muted-foreground">Loading skills...</span>
                     </div>
@@ -378,10 +382,10 @@ export default function OpportunityDetailsModal({
                       >
                         <SelectTrigger 
                           id="modal-edit-skill" 
-                          className={`bg-secondary/50 ${
+                          className={`bg-white/50 backdrop-blur-sm rounded-2xl border border-white/40 ${
                             skillError 
                               ? "border-destructive focus-visible:ring-destructive" 
-                              : "border-border"
+                              : ""
                           }`}
                         >
                           <SelectValue placeholder="Select a skill" />
@@ -413,7 +417,7 @@ export default function OpportunityDetailsModal({
                     onValueChange={(v) => setEditedValues((prev) => ({ ...prev, urgency: v }))}
                     disabled={isSaving}
                   >
-                    <SelectTrigger id="modal-edit-urgency" className="bg-secondary/50 border-border">
+                    <SelectTrigger id="modal-edit-urgency" className="bg-white/50 backdrop-blur-sm rounded-2xl border border-white/40">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -429,22 +433,22 @@ export default function OpportunityDetailsModal({
 
           {/* Assignee */}
           {opportunity.assignee && (
-            <div className="space-y-3">
-              <h3 className="font-semibold text-foreground">Assigned To</h3>
-              <div className="bg-secondary/50 p-4 rounded-lg border border-border flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                  <span className="text-sm font-bold text-primary">{opportunity.assignee.charAt(0)}</span>
+            <div className="space-y-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">ASSIGNED TO</h3>
+              <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/40 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center shadow-sm">
+                  <span className="text-sm font-bold text-indigo-600">{opportunity.assignee.charAt(0)}</span>
                 </div>
                 <div>
-                  <p className="text-foreground font-semibold">{opportunity.assignee}</p>
-                  <p className="text-xs text-muted-foreground">Team Member</p>
+                  <p className="text-slate-800 font-semibold text-base">{opportunity.assignee}</p>
+                  <p className="text-xs text-slate-600">Team Member</p>
                 </div>
               </div>
             </div>
           )}
 
           {/* Actions Footer */}
-          <div className="flex gap-3 justify-between items-center pt-4 border-t border-border">
+          <div className="flex gap-6 justify-between items-center pt-8 border-t border-white/30 -mx-10 -mb-10 px-10 pb-10">
             {/* Danger Zone button on the left - Only show for active opportunities */}
             {!isEditing && opportunity && ['new', 'assigned', 'done'].includes(opportunity.status) && (onCancel || onDelete) && (
               <div className="relative" ref={dangerZoneRef}>
@@ -460,7 +464,7 @@ export default function OpportunityDetailsModal({
 
                 {/* Popover menu - opens upward */}
                 {showDangerZonePopover && (
-                  <div className="absolute bottom-full left-0 mb-2 w-80 bg-card border border-destructive/20 rounded-lg shadow-lg z-50">
+                  <div className="absolute bottom-full left-0 mb-2 w-80 bg-white/90 backdrop-blur-xl border border-white/40 rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.15)] z-50">
                     <div className="bg-destructive/5 border-b border-destructive/20 rounded-t-lg p-3">
                       <div className="flex items-center gap-2 mb-2">
                         <AlertTriangle className="h-4 w-4 text-destructive" />
@@ -570,10 +574,8 @@ export default function OpportunityDetailsModal({
                 </>
               ) : (
                 <>
-                  <Button variant="outline" onClick={onClose}>
-                    Close
-                  </Button>
-                  {!opportunity.assignee && <Button onClick={onAssignClick}>Assign to Team Member</Button>}
+                  {!opportunity.assignee && <Button onClick={onAssignClick} className="rounded-2xl">Assign to Team Member</Button>}
+                  <Button onClick={onClose} className="rounded-2xl">Close</Button>
                 </>
               )}
             </div>

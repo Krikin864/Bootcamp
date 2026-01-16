@@ -293,9 +293,9 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
                 <Skeleton className="h-5 w-20" />
                 <Skeleton className="h-5 w-8 ml-auto" />
               </div>
-              <div className="space-y-3 min-h-96 bg-secondary/30 rounded-lg p-4">
+              <div className="space-y-4 min-h-96 bg-white/30 backdrop-blur-xl rounded-[2rem] p-5 border border-white/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]">
                 {[...Array(3)].map((_, i) => (
-                  <Skeleton key={i} className="h-32 w-full rounded-lg" />
+                  <Skeleton key={i} className="h-32 w-full rounded-2xl bg-white/50" />
                 ))}
               </div>
             </div>
@@ -307,8 +307,8 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
+      <div className="flex items-center justify-between px-2">
+        <p className="text-sm text-slate-600 font-medium">
           {filteredOpportunities.length} opportunity{filteredOpportunities.length !== 1 ? "ies" : ""}
         </p>
       </div>

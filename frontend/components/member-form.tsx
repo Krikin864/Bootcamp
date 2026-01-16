@@ -192,19 +192,20 @@ export default function MemberForm({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-center">
+      <DialogContent className="max-w-3xl p-0 bg-white/80 backdrop-blur-xl border border-white/40 rounded-[2rem] shadow-[0_20px_60px_0_rgba(31,38,135,0.15)]">
+        <DialogHeader className="px-10 pt-10 pb-6">
+          <DialogTitle className="text-2xl font-bold text-slate-800">
             {isEditMode ? "Edit Team Member" : "Add Team Member"}
           </DialogTitle>
-          <DialogDescription className="text-center">
+          <DialogDescription className="text-slate-600">
             {isEditMode 
               ? "Update the team member information below"
               : "Fill in the fields below to add a new team member to your organization"}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+        <div className="px-10 pb-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-4">
             <div>
               <Label htmlFor="member-name">Name *</Label>
@@ -268,18 +269,18 @@ export default function MemberForm({
           <div>
             <Label>Skills (Optional)</Label>
             {isLoadingSkills ? (
-              <div className="p-3 bg-secondary rounded-lg text-sm text-muted-foreground">
+              <div className="p-4 bg-white/50 backdrop-blur-sm rounded-2xl border border-white/40 text-sm text-slate-600">
                 Loading skills...
               </div>
             ) : (
               <>
                 {/* Selected Skills */}
                 {selectedSkillIds.length > 0 && (
-                  <div className="mb-3 flex flex-wrap gap-2 p-3 bg-secondary rounded-lg min-h-[60px]">
+                  <div className="mb-3 flex flex-wrap gap-2 p-4 bg-white/50 backdrop-blur-sm rounded-2xl border border-white/40 min-h-[60px]">
                     {getSelectedSkills().map((skill) => (
                       <div
                         key={skill.id}
-                        className="px-3 py-1 bg-primary text-primary-foreground rounded-full text-xs font-semibold flex items-center gap-2"
+                        className="px-3 py-1.5 bg-white rounded-full text-slate-700 font-medium shadow-md border border-white/60 text-xs flex items-center gap-2"
                       >
                         {skill.name}
                         <button
@@ -296,7 +297,7 @@ export default function MemberForm({
                 )}
 
                 {/* Available Skills */}
-                <div className="flex flex-wrap gap-2 p-3 bg-secondary rounded-lg max-h-40 overflow-y-auto min-h-[60px]">
+                <div className="flex flex-wrap gap-2 p-4 bg-white/50 backdrop-blur-sm rounded-2xl border border-white/40 max-h-40 overflow-y-auto min-h-[60px]">
                   {getAvailableSkills().length > 0 ? (
                     getAvailableSkills().map((skill) => (
                       <button
@@ -304,13 +305,13 @@ export default function MemberForm({
                         onClick={() => handleAddSkill(skill.id)}
                         disabled={isSubmitting}
                         type="button"
-                        className="px-3 py-1 bg-muted text-foreground rounded-full text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1.5 bg-white/70 text-slate-700 rounded-full text-xs font-medium hover:bg-gradient-to-r hover:from-indigo-500 hover:to-purple-500 hover:text-white transition-all shadow-sm border border-white/60 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {skill.name}
                       </button>
                     ))
                   ) : (
-                    <p className="text-sm text-muted-foreground italic w-full text-center">
+                    <p className="text-sm text-slate-600 italic w-full text-center">
                       {selectedSkillIds.length > 0 ? "All skills have been selected" : "No skills available"}
                     </p>
                   )}
@@ -320,20 +321,21 @@ export default function MemberForm({
           </div>
         </div>
 
-        <div className="flex gap-3 justify-end pt-6 mt-6 border-t border-border">
-          <Button variant="outline" onClick={handleClose} disabled={isSubmitting}>
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSubmit} 
-            disabled={!isFormValid || isSubmitting}
-            className="gap-2"
-          >
-            <UserPlus className="h-4 w-4" />
-            {isSubmitting 
-              ? (isEditMode ? "Updating..." : "Adding...") 
-              : (isEditMode ? "Update Team Member" : "Add Team Member")}
-          </Button>
+          <div className="flex gap-4 justify-end pt-8 border-t border-white/30 -mx-10 -mb-10 px-10 pb-10">
+            <Button variant="outline" onClick={handleClose} disabled={isSubmitting} className="rounded-2xl border-white/40 bg-white/50">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmit} 
+              disabled={!isFormValid || isSubmitting}
+              className="gap-2 rounded-2xl"
+            >
+              <UserPlus className="h-4 w-4" />
+              {isSubmitting 
+                ? (isEditMode ? "Updating..." : "Adding...") 
+                : (isEditMode ? "Update Team Member" : "Add Team Member")}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -143,19 +143,19 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
+    <div className="flex h-screen bg-gradient-to-br from-[#d1d8e6] via-[#eef2f7] to-[#e2e8f0] text-foreground">
       <Sidebar open={sidebarOpen} />
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 overflow-hidden">
         <main className="flex-1 overflow-auto">
-          <div className="h-16 border-b border-border bg-card px-6 flex items-center justify-between gap-4">
-            <h1 className="text-2xl font-bold text-foreground">Team Members</h1>
+          <div className="h-16 mt-4 mx-4 bg-white/70 backdrop-blur-md border border-white/40 rounded-[2rem] shadow-sm px-6 flex items-center justify-between gap-4">
+            <h1 className="text-2xl font-bold text-slate-800">Team Members</h1>
             <div className="flex items-center gap-4 flex-1 max-w-md">
               <div className="flex items-center gap-2 flex-1 relative">
                 <Search className="absolute left-3 h-4 w-4 text-muted-foreground pointer-events-none" />
                 <Input
                   type="search"
                   placeholder="Search team members..."
-                  className="pl-10 border-0 bg-secondary placeholder:text-muted-foreground"
+                  className="pl-10 border-0 bg-white/50 backdrop-blur-sm placeholder:text-slate-500"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -171,28 +171,28 @@ export default function TeamPage() {
                 <Settings className="h-4 w-4" />
                 Manage Skills
               </Button>
-              <Button onClick={() => setShowAddModal(true)} className="gap-2" size="sm">
+              <Button onClick={() => setShowAddModal(true)} className="gap-2 rounded-2xl" size="sm">
                 <Plus className="h-4 w-4" />
                 Add Team Member
               </Button>
             </div>
           </div>
 
-          <div className="p-6 space-y-6">
+          <div className="p-6 pt-4 space-y-6 px-4">
 
             {isLoading ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[...Array(6)].map((_, i) => (
                   <div
                     key={i}
-                    className="bg-card border border-border rounded-lg p-4 space-y-3"
+                    className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] p-6 space-y-3 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]"
                   >
                     <div className="flex flex-wrap gap-2">
                       <Skeleton className="h-6 w-16 rounded-full" />
                       <Skeleton className="h-6 w-20 rounded-full" />
                       <Skeleton className="h-6 w-14 rounded-full" />
                     </div>
-                    <div className="pt-2 border-t border-border/50 space-y-2">
+                    <div className="pt-2 border-t border-white/30 space-y-2">
                       <Skeleton className="h-4 w-32" />
                       <Skeleton className="h-3 w-40" />
                     </div>
@@ -204,7 +204,7 @@ export default function TeamPage() {
                 ))}
               </div>
             ) : filteredTeamMembers.length === 0 ? (
-              <div className="bg-card border border-border rounded-lg p-12 text-center">
+              <div className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] p-12 text-center shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]">
                 <div className="max-w-md mx-auto space-y-4">
                   <div className="text-6xl mb-4">👥</div>
                   <h3 className="text-xl font-semibold text-foreground">
@@ -229,18 +229,17 @@ export default function TeamPage() {
                   <div
                     key={member.id}
                     onClick={() => handleMemberClick(member)}
-                    className="bg-card border border-border rounded-lg p-4 hover:shadow-md hover:border-primary/50 transition-all cursor-pointer space-y-3"
+                    className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] p-6 hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.12)] hover:border-white/60 transition-all cursor-pointer space-y-4 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]"
                   >
                     <div className="flex flex-wrap gap-2">
                       {member.skills.length > 0 ? (
                         member.skills.map((skill) => (
-                          <Badge
+                          <span
                             key={skill}
-                            variant="default"
-                            className="px-2.5 py-1 bg-primary text-primary-foreground rounded-full text-xs font-semibold"
+                            className="px-3 py-1.5 bg-white rounded-full text-slate-700 font-medium shadow-md border border-white/60 text-xs"
                           >
                             {skill}
-                          </Badge>
+                          </span>
                         ))
                       ) : (
                         <span className="text-xs text-muted-foreground italic">No skills assigned</span>

@@ -480,13 +480,15 @@ export default function OpportunitiesPage() {
               </div>
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredAndSortedOpportunities.map((opp) => (
+                {filteredAndSortedOpportunities.map((opp, index) => (
                   <OpportunityCard
                     key={opp.id}
                     opportunity={{
                       ...opp,
                       isProcessing: false,
                     }}
+                    isDraggable={false}
+                    index={index}
                   />
                 ))}
               </div>

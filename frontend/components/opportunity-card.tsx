@@ -3,7 +3,9 @@
 import { Draggable } from "@hello-pangea/dnd"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Sparkles } from "lucide-react"
+import { Sparkles, GripVertical } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { createPortal } from "react-dom"
 
 interface Opportunity {
   id: string
@@ -23,10 +25,22 @@ interface OpportunityCardProps {
   opportunity: Opportunity
   onClick?: () => void
   isUpdating?: boolean
-  index: number
+  index?: number
+  isDraggable?: boolean
 }
 
-export default function OpportunityCard({ opportunity, onClick, isUpdating = false, index }: OpportunityCardProps) {
+export default function OpportunityCard({ 
+  opportunity, 
+  onClick, 
+  isUpdating = false, 
+  index = 0,
+  isDraggable = false 
+}: OpportunityCardProps) {
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(typeof window !== 'undefined')
+  }, [])
   const urgencyColors = {
     high: "bg-red-500/10 text-red-600 border-red-200",
     medium: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
@@ -41,22 +55,86 @@ export default function OpportunityCard({ opportunity, onClick, isUpdating = fal
 
   const skills = Array.isArray(opportunity.requiredSkill) ? opportunity.requiredSkill : [opportunity.requiredSkill]
 
-  return (
-    <Draggable draggableId={opportunity.id} index={index}>
-      {(provided, snapshot) => (
+  // Card content component (reusable)
+  const CardContent = ({ provided, snapshot }: { provided?: any; snapshot?: any }) => {
+    const [wasDragging, setWasDragging] = useState(false)
+    const cardRef = useRef<HTMLDivElement>(null)
+    const [cardWidth, setCardWidth] = useState<number | null>(null)
+
+    useEffect(() => {
+      if (snapshot?.isDragging) {
+        setWasDragging(true)
+        // Capture the original width before dragging
+        if (cardRef.current) {
+          setCardWidth(cardRef.current.offsetWidth)
+        }
+      } else if (wasDragging) {
+        // Just finished dragging, reset after a short delay
+        const timer = setTimeout(() => {
+          setWasDragging(false)
+          setCardWidth(null)
+        }, 100)
+        return () => clearTimeout(timer)
+      }
+    }, [snapshot?.isDragging, wasDragging])
+
+    const handleClick = (e: React.MouseEvent) => {
+      // Don't trigger click if we just finished dragging
+      if (wasDragging || snapshot?.isDragging) {
+        e.preventDefault()
+        e.stopPropagation()
+        return
+      }
+      
+      // Normal click handling
+      if (onClick) {
+        onClick()
+      }
+    }
+
+    const cardStyle = provided?.draggableProps?.style
+      ? {
+          ...provided.draggableProps.style,
+          zIndex: snapshot?.isDragging ? 9999 : 1,
+          position: snapshot?.isDragging ? 'fixed' as const : 'relative' as const,
+          width: snapshot?.isDragging && cardWidth ? `${cardWidth}px` : undefined,
+          cursor: snapshot?.isDragging ? 'grabbing' : 'pointer',
+          willChange: snapshot?.isDragging ? 'transform' : undefined,
+        }
+      : undefined
+
+    const cardElement = (
+      <div
+        ref={(node) => {
+          provided?.innerRef(node)
+          if (node) {
+            cardRef.current = node
+          }
+        }}
+        {...(provided?.draggableProps || {})}
+        style={cardStyle}
+        onClick={handleClick}
+        className={`group relative p-5 bg-white/80 backdrop-blur-xl border border-white/50 rounded-[2rem] transition-all cursor-pointer transform-gpu pointer-events-auto ${
+          snapshot?.isDragging
+            ? "shadow-2xl opacity-90 rotate-3 scale-105"
+            : "shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.12)]"
+        } ${
+          isUpdating ? "opacity-60" : ""
+        }`}
+      >
+      
+      {/* Drag handle icon - only for draggable cards, hidden when dragging */}
+      {provided?.dragHandleProps && !snapshot?.isDragging && (
         <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
           {...provided.dragHandleProps}
-          onClick={onClick}
-          className={`p-5 bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] transition-all cursor-pointer ${
-            snapshot.isDragging
-              ? "shadow-2xl opacity-90 rotate-2 scale-105 z-50"
-              : "shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.12)]"
-          } ${
-            isUpdating ? "opacity-60" : ""
-          }`}
+          className="absolute top-3 right-3 w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing z-10"
+          onClick={(e) => e.stopPropagation()}
+          onMouseDown={(e) => e.stopPropagation()}
         >
+          <GripVertical className="h-4 w-4 text-slate-400 hover:text-slate-600" />
+        </div>
+      )}
+
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
           {skills.map((skill) => (
@@ -113,8 +191,29 @@ export default function OpportunityCard({ opportunity, onClick, isUpdating = fal
           </div>
         )}
       </div>
-        </div>
-      )}
-    </Draggable>
-  )
+    </div>
+    )
+
+    // Render in portal when dragging
+    if (snapshot?.isDragging && isClient && typeof document !== 'undefined') {
+      return createPortal(cardElement, document.body)
+    }
+
+    return cardElement
+  }
+
+  // Render with or without Draggable wrapper
+  // Only use Draggable if explicitly set to true and we're on the client
+  if (isDraggable === true && isClient) {
+    return (
+      <Draggable draggableId={opportunity.id} index={index}>
+        {(provided, snapshot) => (
+          <CardContent provided={provided} snapshot={snapshot} />
+        )}
+      </Draggable>
+    )
+  }
+
+  // Render without Draggable (for History view)
+  return <CardContent />
 }

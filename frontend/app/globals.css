@@ -129,3 +129,28 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Drag and Drop Placeholder Styles */
+[data-rbd-placeholder-context-id] {
+  border-radius: 2rem !important;
+  min-height: 120px;
+  border: 2px dashed rgba(148, 163, 184, 0.3) !important;
+  background: rgba(241, 245, 249, 0.2) !important;
+}
+
+/* Bounce animation for invalid moves */
+@keyframes bounce-invalid {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-10px);
+  }
+  75% {
+    transform: translateX(10px);
+  }
+}
+
+.bounce-invalid {
+  animation: bounce-invalid 0.5s ease-in-out;
+}

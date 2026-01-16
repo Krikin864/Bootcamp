@@ -16,6 +16,7 @@ interface KanbanColumnProps {
   onMoveToComplete?: (opportunityId: string) => void
   onArchive?: (opportunityId: string) => void
   updatingIds?: Set<string>
+  isDraggingOverOther?: boolean
 }
 
 export default function KanbanColumn({
@@ -28,6 +29,7 @@ export default function KanbanColumn({
   onMoveToComplete,
   onArchive,
   updatingIds = new Set(),
+  isDraggingOverOther = false,
 }: KanbanColumnProps) {
   // Colores por defecto para las columnas
   const defaultColors = {
@@ -55,7 +57,9 @@ export default function KanbanColumn({
             {...provided.droppableProps}
             className={`space-y-4 min-h-96 bg-white/30 backdrop-blur-xl rounded-[2rem] p-5 border transition-colors ${
               snapshot.isDraggingOver
-                ? "border-indigo-300/60 border-dashed shadow-[0_8px_32px_0_rgba(99,102,241,0.15)]"
+                ? "border-2 border-dashed border-indigo-300/40 bg-indigo-50/5 shadow-[0_8px_32px_0_rgba(99,102,241,0.15)]"
+                : isDraggingOverOther && !snapshot.isDraggingOver
+                ? "border-2 border-dashed border-indigo-300/20 bg-indigo-50/5"
                 : "border-white/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]"
             }`}
           >
@@ -79,6 +83,7 @@ export default function KanbanColumn({
                         onClick={() => onCardClick?.(opp)}
                         isUpdating={isUpdating}
                         index={index}
+                        isDraggable={true}
                       />
                     </div>
                     <div className="flex flex-col gap-1 pt-1">

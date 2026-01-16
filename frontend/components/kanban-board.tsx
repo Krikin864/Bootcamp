@@ -1,11 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { DragDropContext, DropResult } from "@hello-pangea/dnd"
+import { DragDropContext, DropResult, DragStart } from "@hello-pangea/dnd"
 import KanbanColumn from "@/components/kanban-column"
 import OpportunityDetailsModal from "@/components/opportunity-details-modal"
 import TeamRecommendationModal from "@/components/team-recommendation-modal"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 import { getOpportunities, updateOpportunityStatus, updateOpportunityAssignment, deleteOpportunity, type Opportunity } from "@/services/opportunities"
 import { toast } from "sonner"
 
@@ -16,6 +18,9 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null)
   const [recommendationModalOpen, setRecommendationModalOpen] = useState(false)
   const [opportunityToAssign, setOpportunityToAssign] = useState<Opportunity | null>(null)
+  const [draggingOverColumn, setDraggingOverColumn] = useState<string | null>(null)
+  const [pendingMove, setPendingMove] = useState<{ opportunityId: string; newStatus: "new" | "assigned" | "done" } | null>(null)
+  const [showDoneConfirmation, setShowDoneConfirmation] = useState(false)
 
   // Load opportunities from Supabase
   useEffect(() => {
@@ -279,9 +284,91 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
     }
   }
 
+  // Validate workflow rules
+  const validateMove = (fromStatus: string, toStatus: string): { valid: boolean; reason?: string } => {
+    // Prohibited: Cannot move from Assigned back to New
+    if (fromStatus === "assigned" && toStatus === "new") {
+      return { valid: false, reason: "Cannot move from Assigned back to New" }
+    }
+    
+    // Allowed: Done to Assigned (re-work)
+    // Allowed: New to Assigned (with modal)
+    // Allowed: Any to Done (with confirmation)
+    // Allowed: Assigned to Done
+    return { valid: true }
+  }
+
+  // Handle drag start to track which column is being dragged over
+  const handleDragStart = (start: DragStart) => {
+    const opportunity = opportunities.find(opp => opp.id === start.draggableId)
+    if (opportunity) {
+      setDraggingOverColumn(opportunity.status)
+    }
+  }
+
+  // Handle drag update to track which column is being dragged over
+  const handleDragUpdate = (update: any) => {
+    if (update.destination) {
+      setDraggingOverColumn(update.destination.droppableId)
+    } else {
+      setDraggingOverColumn(null)
+    }
+  }
+
+  // Confirm move to Done
+  const handleConfirmDone = async () => {
+    if (!pendingMove) return
+
+    const { opportunityId, newStatus } = pendingMove
+    await executeMove(opportunityId, newStatus)
+    setShowDoneConfirmation(false)
+    setPendingMove(null)
+  }
+
+  // Execute the actual move to database
+  const executeMove = async (opportunityId: string, newStatus: "new" | "assigned" | "done") => {
+    const opportunity = opportunities.find(opp => opp.id === opportunityId)
+    if (!opportunity) return
+
+    const previousOpportunities = [...opportunities]
+    setOpportunities((prev) =>
+      prev.map((opp) => (opp.id === opportunityId ? { ...opp, status: newStatus } : opp))
+    )
+    setUpdatingIds((prev) => new Set(prev).add(opportunityId))
+
+    try {
+      const updatedOpportunity = await updateOpportunityStatus(opportunityId, newStatus)
+      
+      if (updatedOpportunity) {
+        setOpportunities((prev) =>
+          prev.map((opp) => (opp.id === opportunityId ? updatedOpportunity : opp))
+        )
+        
+        if (opportunity.status === 'new' || newStatus === 'new') {
+          window.dispatchEvent(new CustomEvent('opportunityStatusChanged', {
+            detail: { opportunityId, previousStatus: opportunity.status, newStatus }
+          }))
+        }
+      } else {
+        throw new Error('Failed to update opportunity')
+      }
+    } catch (error) {
+      setOpportunities(previousOpportunities)
+      toast.error('Failed to update opportunity status. Please try again.')
+      console.error('Error updating opportunity status:', error)
+    } finally {
+      setUpdatingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(opportunityId)
+        return next
+      })
+    }
+  }
+
   // Handle drag and drop
   const handleDragEnd = async (result: DropResult) => {
     const { destination, source, draggableId } = result
+    setDraggingOverColumn(null)
 
     // If dropped outside a droppable area, do nothing
     if (!destination) {
@@ -304,7 +391,9 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
     }
 
     const newStatus = statusMap[destination.droppableId]
-    if (!newStatus) {
+    const oldStatus = statusMap[source.droppableId]
+    
+    if (!newStatus || !oldStatus) {
       return
     }
 
@@ -319,41 +408,84 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
       return
     }
 
-    // Optimistic update: update UI immediately
+    // Validate workflow rules
+    const validation = validateMove(oldStatus, newStatus)
+    if (!validation.valid) {
+      // Invalid move - show bounce animation via toast
+      toast.error(validation.reason || "Invalid move")
+      // The card will automatically return to its original position
+      return
+    }
+
+    // Handle special cases that require modals
+    if (oldStatus === "new" && newStatus === "assigned") {
+      // Open assign modal instead of moving directly
+      setOpportunityToAssign(opportunity)
+      setRecommendationModalOpen(true)
+      setPendingMove({ opportunityId: draggableId, newStatus })
+      return
+    }
+
+    if (newStatus === "done") {
+      // Open confirmation dialog
+      setPendingMove({ opportunityId: draggableId, newStatus })
+      setShowDoneConfirmation(true)
+      return
+    }
+
+    // Direct move (no modal required)
+    await executeMove(draggableId, newStatus)
+  }
+
+  // Handle team member assignment from drag & drop
+  const handleAssignFromDrag = async (memberId: string) => {
+    if (!opportunityToAssign || !pendingMove) return
+
+    const previousStatus = opportunityToAssign.status
+
+    // Update assignment and status
     const previousOpportunities = [...opportunities]
+    setUpdatingIds((prev) => new Set(prev).add(opportunityToAssign.id))
+
     setOpportunities((prev) =>
-      prev.map((opp) => (opp.id === draggableId ? { ...opp, status: newStatus } : opp))
+      prev.map((opp) => 
+        opp.id === opportunityToAssign.id 
+          ? { ...opp, status: 'assigned' as const, assignee: 'Loading...' }
+          : opp
+      )
     )
-    setUpdatingIds((prev) => new Set(prev).add(draggableId))
 
     try {
-      // Call the API to persist the change
-      const updatedOpportunity = await updateOpportunityStatus(draggableId, newStatus)
+      // Update assigned_user_id and status in Supabase
+      const updatedOpportunity = await updateOpportunityAssignment(opportunityToAssign.id, memberId)
       
       if (updatedOpportunity) {
-        // Update with real data from DB
         setOpportunities((prev) =>
-          prev.map((opp) => (opp.id === draggableId ? updatedOpportunity : opp))
+          prev.map((opp) => (opp.id === opportunityToAssign.id ? updatedOpportunity : opp))
         )
+        toast.success(`Opportunity assigned successfully`)
+        setRecommendationModalOpen(false)
+        setOpportunityToAssign(null)
+        setPendingMove(null)
         
-        // Emit event if status changed to/from 'new' to trigger stats refresh
-        if (opportunity.status === 'new' || newStatus === 'new') {
+        if (previousStatus === 'new' || updatedOpportunity.status === 'new') {
           window.dispatchEvent(new CustomEvent('opportunityStatusChanged', {
-            detail: { opportunityId: draggableId, previousStatus: opportunity.status, newStatus }
+            detail: { opportunityId: opportunityToAssign.id, previousStatus, newStatus: updatedOpportunity.status }
           }))
         }
       } else {
-        throw new Error('Failed to update opportunity')
+        throw new Error('Failed to update opportunity assignment')
       }
-    } catch (error) {
-      // Revert change in case of error
+    } catch (error: any) {
       setOpportunities(previousOpportunities)
-      toast.error('Failed to update opportunity status. Please try again.')
-      console.error('Error updating opportunity status:', error)
+      const errorMessage = error?.message || error?.details || 'Unknown error occurred'
+      toast.error(`Failed to assign opportunity: ${errorMessage}`)
+      console.error('Error assigning team member:', error)
+      setPendingMove(null)
     } finally {
       setUpdatingIds((prev) => {
         const next = new Set(prev)
-        next.delete(draggableId)
+        next.delete(opportunityToAssign.id)
         return next
       })
     }
@@ -387,7 +519,11 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
   }
 
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
+    <DragDropContext 
+      onDragStart={handleDragStart}
+      onDragUpdate={handleDragUpdate}
+      onDragEnd={handleDragEnd}
+    >
       <div className="space-y-4">
         <div className="flex items-center justify-between px-2">
           <p className="text-sm text-slate-600 font-medium">
@@ -407,6 +543,7 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
               onMoveToComplete={handleMoveToComplete}
               onArchive={handleArchive}
               updatingIds={updatingIds}
+              isDraggingOverOther={draggingOverColumn !== null && draggingOverColumn !== column.status}
             />
           ))}
         </div>
@@ -430,11 +567,47 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
       {opportunityToAssign && (
         <TeamRecommendationModal
           open={recommendationModalOpen}
-          onOpenChange={setRecommendationModalOpen}
+          onOpenChange={(open) => {
+            setRecommendationModalOpen(open)
+            if (!open) {
+              setOpportunityToAssign(null)
+              setPendingMove(null)
+            }
+          }}
           opportunity={opportunityToAssign}
-          onAssignTeamMember={handleAssignTeamMember}
+          onAssignTeamMember={pendingMove ? handleAssignFromDrag : handleAssignTeamMember}
         />
       )}
+
+      {/* Confirmation Dialog for Done */}
+      <Dialog open={showDoneConfirmation} onOpenChange={setShowDoneConfirmation}>
+        <DialogContent className="max-w-md bg-white/80 backdrop-blur-xl border border-white/40 rounded-[2rem]">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-slate-800">Mark as Done?</DialogTitle>
+            <DialogDescription className="text-slate-600">
+              Are you sure you want to mark this opportunity as done? This action can be reversed later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDoneConfirmation(false)
+                setPendingMove(null)
+              }}
+              className="rounded-2xl border-white/40 bg-white/50"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmDone}
+              className="rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white"
+            >
+              Mark as Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DragDropContext>
   )
 }

@@ -59,12 +59,8 @@ export default function TeamPage() {
     loadTeamMembers()
   }, [])
 
-  // Get all unique skills from team members
-  const allUniqueSkills = Array.from(
-    new Set(
-      teamMembers.flatMap(member => member.skills).filter(skill => skill && skill.trim() !== "")
-    )
-  ).sort()
+  // Use all available skills from the database (not just from current members)
+  const allUniqueSkills = availableSkills.map(skill => skill.name).sort()
 
   // Toggle skill filter
   const toggleSkillFilter = (skill: string) => {
@@ -210,7 +206,7 @@ export default function TeamPage() {
           </div>
 
           {/* Skills Filter Bar */}
-          {allUniqueSkills.length > 0 && (
+          {allUniqueSkills.length > 0 ? (
             <div className="mx-4 mt-4 p-4 bg-white/60 backdrop-blur-xl border border-white/40 rounded-[2rem] flex flex-wrap gap-2 shadow-sm">
               {allUniqueSkills.map((skill) => {
                 const isActive = activeSkillFilters.includes(skill)
@@ -233,11 +229,11 @@ export default function TeamPage() {
                   onClick={clearSkillFilters}
                   className="text-xs text-slate-400 underline hover:text-slate-600 transition-colors ml-auto self-center"
                 >
-                  Limpiar Filtros
+                  Clear Filters
                 </button>
               )}
             </div>
-          )}
+          ) : null}
 
           <div className="p-6 pt-4 space-y-6 px-4">
 
@@ -272,14 +268,14 @@ export default function TeamPage() {
                     {teamMembers.length === 0 
                       ? "No team members yet" 
                       : activeSkillFilters.length > 0
-                      ? "No hay miembros con estas habilidades"
+                      ? "No members with these skills"
                       : "No matching team members"}
                   </h3>
                   <p className="text-muted-foreground">
                     {teamMembers.length === 0 
                       ? "Get started by adding your first team member to the system."
                       : activeSkillFilters.length > 0
-                      ? "Intenta ajustar los filtros de habilidades para ver más resultados."
+                      ? "Try adjusting the skill filters to see more results."
                       : "Try adjusting your search criteria."}
                   </p>
                   {teamMembers.length === 0 ? (
@@ -293,7 +289,7 @@ export default function TeamPage() {
                       className="gap-2 mt-4 rounded-2xl border-white/40 bg-white/50" 
                       onClick={clearSkillFilters}
                     >
-                      Resetear Filtros
+                      Reset Filters
                     </Button>
                   ) : null}
                 </div>

@@ -60,6 +60,7 @@ export default function OpportunityCard({
     const [wasDragging, setWasDragging] = useState(false)
     const cardRef = useRef<HTMLDivElement>(null)
     const [cardWidth, setCardWidth] = useState<number | null>(null)
+    const isDraggableMode = !!provided
 
     useEffect(() => {
       if (snapshot?.isDragging) {
@@ -79,8 +80,8 @@ export default function OpportunityCard({
     }, [snapshot?.isDragging, wasDragging])
 
     const handleClick = (e: React.MouseEvent) => {
-      // Don't trigger click if we just finished dragging
-      if (wasDragging || snapshot?.isDragging) {
+      // Don't trigger click if we just finished dragging (only for draggable mode)
+      if (isDraggableMode && (wasDragging || snapshot?.isDragging)) {
         e.preventDefault()
         e.stopPropagation()
         return

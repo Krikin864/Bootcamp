@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { getSkills, type Skill } from "@/services/skills"
+import { getTeamMembers, type TeamMember } from "@/services/members"
 import { updateOpportunityDetails, updateOpportunityStatus, deleteOpportunity, type Opportunity } from "@/services/opportunities"
 import { toast } from "sonner"
 
@@ -32,7 +33,9 @@ export default function OpportunityDetailsModal({
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [skills, setSkills] = useState<Skill[]>([])
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [isLoadingSkills, setIsLoadingSkills] = useState(false)
+  const [isLoadingMembers, setIsLoadingMembers] = useState(false)
   const [summaryError, setSummaryError] = useState<string>("")
   const [skillError, setSkillError] = useState<string>("")
   const [isDeleting, setIsDeleting] = useState(false)
@@ -42,6 +45,7 @@ export default function OpportunityDetailsModal({
     summary: "",
     skillId: "none", // Use "none" instead of "" to avoid Select component error
     urgency: "",
+    assignedMemberId: "none", // Use "none" instead of "" to avoid Select component error
   })
 
   // Reset danger zone popover visibility when modal opens/closes
@@ -66,15 +70,22 @@ export default function OpportunityDetailsModal({
     }
   }, [showDangerZonePopover])
 
-  // Load skills from database when modal opens in edit mode
+  // Load skills and team members from database when modal opens in edit mode
   useEffect(() => {
-    async function loadSkills() {
+    async function loadSkillsAndMembers() {
       if (!opportunity || !isEditing) return
       
       try {
         setIsLoadingSkills(true)
-        const skillsData = await getSkills()
+        setIsLoadingMembers(true)
+        
+        const [skillsData, membersData] = await Promise.all([
+          getSkills(),
+          getTeamMembers()
+        ])
+        
         setSkills(skillsData)
+        setTeamMembers(membersData)
         
         // If the opportunity has a skill, find its ID by name
         const currentSkills = Array.isArray(opportunity.requiredSkill) 
@@ -92,20 +103,33 @@ export default function OpportunityDetailsModal({
         } else {
           setEditedValues(prev => ({ ...prev, skillId: "none" }))
         }
+        
+        // Set the current assigned member ID
+        if (opportunity.assigneeId && membersData.length > 0) {
+          const currentMember = membersData.find(m => m.id === opportunity.assigneeId)
+          if (currentMember) {
+            setEditedValues(prev => ({ ...prev, assignedMemberId: currentMember.id }))
+          } else {
+            setEditedValues(prev => ({ ...prev, assignedMemberId: "none" }))
+          }
+        } else {
+          setEditedValues(prev => ({ ...prev, assignedMemberId: "none" }))
+        }
       } catch (error) {
-        console.error('Error loading skills:', error)
-        toast.error('Failed to load skills')
+        console.error('Error loading skills/members:', error)
+        toast.error('Failed to load skills or team members')
       } finally {
         setIsLoadingSkills(false)
+        setIsLoadingMembers(false)
       }
     }
 
-    loadSkills()
+    loadSkillsAndMembers()
 
     // Listen for skills updates
     const handleSkillsUpdated = () => {
       if (opportunity && isEditing) {
-        loadSkills()
+        loadSkillsAndMembers()
       }
     }
 
@@ -128,6 +152,7 @@ export default function OpportunityDetailsModal({
       summary: opportunity.aiSummary,
       skillId: "none", // Will be set when skills are loaded
       urgency: opportunity.urgency,
+      assignedMemberId: opportunity.assigneeId || "none", // Will be set when members are loaded
     })
     setSummaryError("") // Reset error when starting to edit
     setSkillError("") // Reset skill error when starting to edit
@@ -205,6 +230,21 @@ export default function OpportunityDetailsModal({
         // Use the UUID of the selected skill, not the name
         if (selectedSkill.name !== currentSkillName) {
           updates.required_skill_id = selectedSkill.id // UUID, not name
+        }
+      }
+      
+      // Update assigned_user_id
+      const selectedMember = teamMembers.find(m => m.id === editedValues.assignedMemberId)
+      
+      if (editedValues.assignedMemberId === "none") {
+        // If "none" was selected, unassign (set as null)
+        if (opportunity.assigneeId) {
+          updates.assigned_user_id = null
+        }
+      } else if (selectedMember) {
+        // Use the UUID of the selected member
+        if (selectedMember.id !== opportunity.assigneeId) {
+          updates.assigned_user_id = selectedMember.id // UUID
         }
       }
 
@@ -432,20 +472,62 @@ export default function OpportunityDetailsModal({
           </div>
 
           {/* Assignee */}
-          {opportunity.assignee && (
-            <div className="space-y-4">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">ASSIGNED TO</h3>
-              <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/40 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center shadow-sm">
-                  <span className="text-sm font-bold text-indigo-600">{opportunity.assignee.charAt(0)}</span>
+          <div className="space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              ASSIGNED TO
+              {!isEditing && <span className="text-xs font-normal text-slate-400 normal-case">(Editable)</span>}
+            </h3>
+            {!isEditing ? (
+              opportunity.assignee ? (
+                <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/40 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center shadow-sm">
+                    <span className="text-sm font-bold text-indigo-600">{opportunity.assignee.charAt(0)}</span>
+                  </div>
+                  <div>
+                    <p className="text-slate-800 font-semibold text-base">{opportunity.assignee}</p>
+                    <p className="text-xs text-slate-600">Team Member</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-slate-800 font-semibold text-base">{opportunity.assignee}</p>
-                  <p className="text-xs text-slate-600">Team Member</p>
+              ) : (
+                <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/40">
+                  <p className="text-slate-600 italic">No team member assigned</p>
                 </div>
+              )
+            ) : (
+              <div>
+                <Label htmlFor="modal-edit-assigned-member" className="text-xs font-medium mb-2 block">
+                  Team Member
+                </Label>
+                {isLoadingMembers ? (
+                  <div className="flex items-center gap-2 p-4 bg-white/50 backdrop-blur-sm border border-white/40 rounded-2xl">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Loading team members...</span>
+                  </div>
+                ) : (
+                  <Select
+                    value={editedValues.assignedMemberId}
+                    onValueChange={(value) => setEditedValues((prev) => ({ ...prev, assignedMemberId: value }))}
+                    disabled={isSaving}
+                  >
+                    <SelectTrigger 
+                      id="modal-edit-assigned-member" 
+                      className="bg-white/50 backdrop-blur-sm rounded-2xl border border-white/40"
+                    >
+                      <SelectValue placeholder="Select a team member" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No team member</SelectItem>
+                      {teamMembers.map((member) => (
+                        <SelectItem key={member.id} value={member.id}>
+                          {member.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Actions Footer */}
           <div className="flex gap-6 justify-between items-center pt-8 border-t border-white/30 -mx-10 -mb-10 px-10 pb-10">

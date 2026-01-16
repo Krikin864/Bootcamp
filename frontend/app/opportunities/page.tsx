@@ -48,6 +48,22 @@ export default function OpportunitiesPage() {
         setIsLoading(true)
         setError(null)
         const data = await getOpportunities()
+        
+        // Debug: Log first opportunity to verify requiredSkillId is loaded
+        if (process.env.NODE_ENV === 'development' && data.length > 0) {
+          console.log('Loaded opportunities sample:', {
+            total: data.length,
+            firstOpp: {
+              id: data[0].id,
+              clientName: data[0].clientName,
+              requiredSkill: data[0].requiredSkill,
+              requiredSkillId: data[0].requiredSkillId,
+              hasRequiredSkillId: !!data[0].requiredSkillId
+            },
+            oppsWithSkillId: data.filter(opp => opp.requiredSkillId).length
+          })
+        }
+        
         setOpportunities(data)
       } catch (err) {
         console.error('Error loading opportunities:', err)
@@ -179,7 +195,47 @@ export default function OpportunitiesPage() {
 
     // Skill filter - filter by skill ID (from database)
     if (filters.skill && filters.skill !== "" && filters.skill !== "all") {
-      if (opp.requiredSkillId !== filters.skill) return false
+      // If opportunity has no requiredSkillId, exclude it when filtering by skill
+      // Compare as strings to ensure proper matching
+      const filterSkillId = String(filters.skill).trim()
+      const oppSkillId = opp.requiredSkillId ? String(opp.requiredSkillId).trim() : null
+      
+      // Debug logging for ALL opportunities when filter is active
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 Skill filter check:', {
+          oppIndex: opportunities.indexOf(opp),
+          oppId: opp.id,
+          oppClientName: opp.clientName,
+          filterSkillId,
+          oppSkillId,
+          oppRequiredSkillId_raw: opp.requiredSkillId,
+          oppRequiredSkillId_type: typeof opp.requiredSkillId,
+          oppRequiredSkill: opp.requiredSkill,
+          matches: oppSkillId === filterSkillId,
+          willInclude: oppSkillId === filterSkillId
+        })
+      }
+      
+      // If opportunity has no requiredSkillId, exclude it
+      if (!oppSkillId) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('❌ Excluding (no requiredSkillId):', opp.id, opp.clientName)
+        }
+        return false
+      }
+      
+      // Compare IDs
+      if (oppSkillId !== filterSkillId) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('❌ Excluding (ID mismatch):', opp.id, 'oppSkillId:', oppSkillId, 'filterSkillId:', filterSkillId)
+        }
+        return false
+      }
+      
+      // If we get here, the IDs match
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Including (ID match):', opp.id, opp.clientName)
+      }
     }
 
     // Assigned team member filter - filter by member ID (from database)
@@ -252,36 +308,59 @@ export default function OpportunitiesPage() {
                 />
               </div>
             </div>
-            <Button className="gap-2 rounded-2xl" size="sm" onClick={() => setShowNewOpportunityModal(true)}>
+            <Button className="gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 shadow-lg hover:shadow-xl transition-all" size="sm" onClick={() => setShowNewOpportunityModal(true)}>
               <Plus className="h-4 w-4" />
               New Opportunity
             </Button>
           </div>
 
-          <div className="p-6 pt-4 space-y-6 px-4">
-            <div className="flex gap-4 items-end">
-              <div className="flex gap-2">
-                <Button
-                  variant={viewMode === "table" ? "default" : "outline"}
-                  size="icon"
-                  onClick={() => setViewMode("table")}
-                  className="bg-transparent"
-                >
-                  <LayoutList className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "grid" ? "default" : "outline"}
-                  size="icon"
-                  onClick={() => setViewMode("grid")}
-                  className="bg-transparent"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
+          <div className="p-6 pt-4 space-y-4 px-4">
             {/* History Page Filters - Organized in responsive grid */}
-            <div className="space-y-4 p-6 bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]">
+            <div className="p-6 bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]">
+              <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+                <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Filters</h2>
+                <div className="flex items-center gap-3">
+                  {/* Clear Filters Button */}
+                  {(filters.status || filters.urgency || filters.skill || filters.assignedTeam || filters.startDate || filters.endDate) && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setFilters({ status: "", urgency: "", skill: "", assignedTeam: "", startDate: "", endDate: "" })}
+                      size="sm"
+                      className="rounded-full border-white/40 bg-white/50 text-xs h-8 px-3"
+                    >
+                      Clear Filters
+                    </Button>
+                  )}
+                  {/* View Switcher - Switch Style */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-medium text-slate-600">View:</span>
+                    <div className="relative flex items-center bg-white/60 backdrop-blur-sm rounded-full p-1 border border-white/40 shadow-sm">
+                      <button
+                        onClick={() => setViewMode("table")}
+                        className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all z-10 ${
+                          viewMode === "table"
+                            ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md"
+                            : "text-slate-600 hover:text-slate-800"
+                        }`}
+                      >
+                        <LayoutList className="h-4 w-4" />
+                        <span>List</span>
+                      </button>
+                      <button
+                        onClick={() => setViewMode("grid")}
+                        className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all z-10 ${
+                          viewMode === "grid"
+                            ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md"
+                            : "text-slate-600 hover:text-slate-800"
+                        }`}
+                      >
+                        <LayoutGrid className="h-4 w-4" />
+                        <span>Grid</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                 {/* Status Filter */}
                 <div className="space-y-2">
@@ -330,7 +409,13 @@ export default function OpportunitiesPage() {
                   <Label htmlFor="skill-filter" className="text-sm font-medium">Skill</Label>
                   <Select
                     value={filters.skill || "all"}
-                    onValueChange={(value) => setFilters({ ...filters, skill: value === "all" ? "" : value })}
+                    onValueChange={(value) => {
+                      const newSkillValue = value === "all" ? "" : value
+                      if (process.env.NODE_ENV === 'development') {
+                        console.log('Skill filter changed:', { oldValue: filters.skill, newValue: newSkillValue, selectedValue: value })
+                      }
+                      setFilters({ ...filters, skill: newSkillValue })
+                    }}
                     disabled={isLoadingFilters}
                   >
                     <SelectTrigger id="skill-filter" className="w-full">
@@ -393,19 +478,6 @@ export default function OpportunitiesPage() {
                   />
                 </div>
               </div>
-
-              {/* Clear Filters Button */}
-              {(filters.status || filters.urgency || filters.skill || filters.assignedTeam || filters.startDate || filters.endDate) && (
-                <div className="flex justify-end pt-4 border-t border-white/30">
-                  <Button
-                    variant="outline"
-                    onClick={() => setFilters({ status: "", urgency: "", skill: "", assignedTeam: "", startDate: "", endDate: "" })}
-                    size="sm"
-                  >
-                    Clear All Filters
-                  </Button>
-                </div>
-              )}
             </div>
 
             {error && (
@@ -479,7 +551,7 @@ export default function OpportunitiesPage() {
                 </div>
               </div>
             ) : viewMode === "grid" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full">
                 {filteredAndSortedOpportunities.map((opp, index) => (
                   <OpportunityCard
                     key={opp.id}
@@ -487,6 +559,7 @@ export default function OpportunitiesPage() {
                       ...opp,
                       isProcessing: false,
                     }}
+                    onClick={() => setSelectedOpportunity(opp)}
                     isDraggable={false}
                     index={index}
                   />

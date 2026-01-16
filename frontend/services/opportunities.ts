@@ -57,6 +57,7 @@ export async function getOpportunities(): Promise<Opportunity[]> {
         ai_summary,
         urgency,
         created_at,
+        required_skill_id,
         Clients!client_id (
           name,
           company
@@ -75,7 +76,7 @@ export async function getOpportunities(): Promise<Opportunity[]> {
       // Query without relations
       const { data: oppsWithoutRelations, error: simpleError } = await supabase
         .from("Opportunities")
-        .select('id, client_id, assigned_user_id, status, original_message, ai_summary, urgency, created_at')
+        .select('id, client_id, assigned_user_id, status, original_message, ai_summary, urgency, created_at, required_skill_id')
         .order('created_at', { ascending: false })
 
       if (simpleError) {
@@ -198,13 +199,34 @@ export async function getOpportunities(): Promise<Opportunity[]> {
         status = 'assigned'
       }
       
-      return {
+      // Get requiredSkillId: prefer the direct field, but if it's null and we have skills from the map, use the first skill's ID
+      let requiredSkillId = opp.required_skill_id || null
+      if (!requiredSkillId && skills.length > 0 && skills[0]?.id) {
+        // If required_skill_id is null but we have skills from the relation table, use the first skill's ID
+        requiredSkillId = skills[0].id
+      }
+      
+      // Debug: Log first opportunity to verify required_skill_id is present
+      if (process.env.NODE_ENV === 'development' && opportunitiesData.indexOf(opp) === 0) {
+        console.log('getOpportunities - First opportunity raw data:', {
+          id: opp.id,
+          required_skill_id: opp.required_skill_id,
+          required_skill_id_type: typeof opp.required_skill_id,
+          has_required_skill_id: opp.hasOwnProperty('required_skill_id'),
+          allKeys: Object.keys(opp),
+          skillsFromMap: skillsMap[opp.id],
+          skillNames: skillNames,
+          finalRequiredSkillId: requiredSkillId
+        })
+      }
+      
+      const transformed = {
         id: opp.id,
         clientName: client?.name || 'Unknown Client',
         company: client?.company || 'Unknown Company',
         summary: opp.original_message || '',
         requiredSkill: skillNames.length > 0 ? (skillNames.length === 1 ? skillNames[0] : skillNames) : [],
-        requiredSkillId: opp.required_skill_id || null,
+        requiredSkillId: requiredSkillId,
         assignee: assignedUser?.full_name || '',
         assigneeId: opp.assigned_user_id || null,
         status: status,
@@ -217,6 +239,18 @@ export async function getOpportunities(): Promise<Opportunity[]> {
         }),
         created_at: opp.created_at // Include raw timestamp for filtering
       }
+      
+      // Debug: Log first transformed opportunity
+      if (process.env.NODE_ENV === 'development' && opportunitiesData.indexOf(opp) === 0) {
+        console.log('getOpportunities - First opportunity transformed:', {
+          id: transformed.id,
+          requiredSkillId: transformed.requiredSkillId,
+          requiredSkillId_type: typeof transformed.requiredSkillId,
+          requiredSkill: transformed.requiredSkill
+        })
+      }
+      
+      return transformed
     })
 
     return transformedOpportunities
@@ -495,6 +529,7 @@ export async function updateOpportunityDetails(
     ai_summary?: string
     urgency?: string
     required_skill_id?: string | null
+    assigned_user_id?: string | null
   }
 ): Promise<Opportunity | null> {
   try {
@@ -528,6 +563,41 @@ export async function updateOpportunityDetails(
         updateData.required_skill_id = updates.required_skill_id
       } else {
         updateData.required_skill_id = null
+      }
+    }
+    
+    if (updates.assigned_user_id !== undefined) {
+      // If it's null, set as null (unassign)
+      if (updates.assigned_user_id === null) {
+        updateData.assigned_user_id = null
+        // Note: We don't automatically change status when unassigning
+        // The user can manually change status if needed
+      } else if (updates.assigned_user_id.trim() !== '') {
+        // Validate that assigned_user_id is a valid UUID
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        if (!uuidRegex.test(updates.assigned_user_id)) {
+          throw new Error(`assigned_user_id must be a valid UUID, not a name. Received value: ${updates.assigned_user_id}`)
+        }
+        updateData.assigned_user_id = updates.assigned_user_id
+        // If assigning a user and status is 'new', change to 'assigned'
+        // We'll get the current opportunity first to check its status
+      } else {
+        updateData.assigned_user_id = null
+      }
+    }
+    
+    // If we're assigning a user, check if we need to update status
+    if (updates.assigned_user_id !== undefined && updates.assigned_user_id !== null && updates.assigned_user_id.trim() !== '') {
+      // Get current opportunity to check status
+      const { data: currentOpp } = await supabase
+        .from("Opportunities")
+        .select('status')
+        .eq('id', id)
+        .single()
+      
+      // If status is 'new' and we're assigning a user, change to 'assigned'
+      if (currentOpp && currentOpp.status?.toLowerCase() === 'new') {
+        updateData.status = 'assigned'
       }
     }
 

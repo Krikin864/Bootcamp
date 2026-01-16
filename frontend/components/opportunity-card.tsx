@@ -1,5 +1,6 @@
 "use client"
 
+import { Draggable } from "@hello-pangea/dnd"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Sparkles } from "lucide-react"
@@ -22,9 +23,10 @@ interface OpportunityCardProps {
   opportunity: Opportunity
   onClick?: () => void
   isUpdating?: boolean
+  index: number
 }
 
-export default function OpportunityCard({ opportunity, onClick, isUpdating = false }: OpportunityCardProps) {
+export default function OpportunityCard({ opportunity, onClick, isUpdating = false, index }: OpportunityCardProps) {
   const urgencyColors = {
     high: "bg-red-500/10 text-red-600 border-red-200",
     medium: "bg-yellow-500/10 text-yellow-600 border-yellow-200",
@@ -40,12 +42,21 @@ export default function OpportunityCard({ opportunity, onClick, isUpdating = fal
   const skills = Array.isArray(opportunity.requiredSkill) ? opportunity.requiredSkill : [opportunity.requiredSkill]
 
   return (
-    <div
-      onClick={onClick}
-      className={`p-5 bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.12)] transition-all cursor-pointer ${
-        isUpdating ? "opacity-60" : ""
-      }`}
-    >
+    <Draggable draggableId={opportunity.id} index={index}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+          onClick={onClick}
+          className={`p-5 bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] transition-all cursor-pointer ${
+            snapshot.isDragging
+              ? "shadow-2xl opacity-90 rotate-2 scale-105 z-50"
+              : "shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.12)]"
+          } ${
+            isUpdating ? "opacity-60" : ""
+          }`}
+        >
       <div className="space-y-3">
         <div className="flex flex-wrap gap-2">
           {skills.map((skill) => (
@@ -102,6 +113,8 @@ export default function OpportunityCard({ opportunity, onClick, isUpdating = fal
           </div>
         )}
       </div>
-    </div>
+        </div>
+      )}
+    </Draggable>
   )
 }

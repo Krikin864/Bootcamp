@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { DragDropContext, DropResult } from "@hello-pangea/dnd"
 import KanbanColumn from "@/components/kanban-column"
 import OpportunityDetailsModal from "@/components/opportunity-details-modal"
 import TeamRecommendationModal from "@/components/team-recommendation-modal"
@@ -278,6 +279,86 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
     }
   }
 
+  // Handle drag and drop
+  const handleDragEnd = async (result: DropResult) => {
+    const { destination, source, draggableId } = result
+
+    // If dropped outside a droppable area, do nothing
+    if (!destination) {
+      return
+    }
+
+    // If dropped in the same position, do nothing
+    if (
+      destination.droppableId === source.droppableId &&
+      destination.index === source.index
+    ) {
+      return
+    }
+
+    // Map column IDs to status values
+    const statusMap: Record<string, "new" | "assigned" | "done"> = {
+      "new": "new",
+      "assigned": "assigned",
+      "done": "done",
+    }
+
+    const newStatus = statusMap[destination.droppableId]
+    if (!newStatus) {
+      return
+    }
+
+    // Get the opportunity being moved
+    const opportunity = opportunities.find(opp => opp.id === draggableId)
+    if (!opportunity) {
+      return
+    }
+
+    // If status hasn't changed, do nothing
+    if (opportunity.status === newStatus) {
+      return
+    }
+
+    // Optimistic update: update UI immediately
+    const previousOpportunities = [...opportunities]
+    setOpportunities((prev) =>
+      prev.map((opp) => (opp.id === draggableId ? { ...opp, status: newStatus } : opp))
+    )
+    setUpdatingIds((prev) => new Set(prev).add(draggableId))
+
+    try {
+      // Call the API to persist the change
+      const updatedOpportunity = await updateOpportunityStatus(draggableId, newStatus)
+      
+      if (updatedOpportunity) {
+        // Update with real data from DB
+        setOpportunities((prev) =>
+          prev.map((opp) => (opp.id === draggableId ? updatedOpportunity : opp))
+        )
+        
+        // Emit event if status changed to/from 'new' to trigger stats refresh
+        if (opportunity.status === 'new' || newStatus === 'new') {
+          window.dispatchEvent(new CustomEvent('opportunityStatusChanged', {
+            detail: { opportunityId: draggableId, previousStatus: opportunity.status, newStatus }
+          }))
+        }
+      } else {
+        throw new Error('Failed to update opportunity')
+      }
+    } catch (error) {
+      // Revert change in case of error
+      setOpportunities(previousOpportunities)
+      toast.error('Failed to update opportunity status. Please try again.')
+      console.error('Error updating opportunity status:', error)
+    } finally {
+      setUpdatingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(draggableId)
+        return next
+      })
+    }
+  }
+
   // Mostrar skeleton mientras carga
   if (isLoading) {
     return (
@@ -306,26 +387,29 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between px-2">
-        <p className="text-sm text-slate-600 font-medium">
-          {filteredOpportunities.length} opportunity{filteredOpportunities.length !== 1 ? "ies" : ""}
-        </p>
-      </div>
+    <DragDropContext onDragEnd={handleDragEnd}>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-2">
+          <p className="text-sm text-slate-600 font-medium">
+            {filteredOpportunities.length} opportunity{filteredOpportunities.length !== 1 ? "ies" : ""}
+          </p>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {columns.map((column) => (
-          <KanbanColumn
-            key={column.status}
-            title={column.title}
-            opportunities={filteredOpportunities.filter((o) => o.status === column.status)}
-            onCardClick={(opp) => setSelectedOpportunity(opp)}
-            onAssignClick={handleAssignClick}
-            onMoveToComplete={handleMoveToComplete}
-            onArchive={handleArchive}
-            updatingIds={updatingIds}
-          />
-        ))}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {columns.map((column) => (
+            <KanbanColumn
+              key={column.status}
+              droppableId={column.status}
+              title={column.title}
+              opportunities={filteredOpportunities.filter((o) => o.status === column.status)}
+              onCardClick={(opp) => setSelectedOpportunity(opp)}
+              onAssignClick={handleAssignClick}
+              onMoveToComplete={handleMoveToComplete}
+              onArchive={handleArchive}
+              updatingIds={updatingIds}
+            />
+          ))}
+        </div>
       </div>
 
       {selectedOpportunity && (
@@ -351,6 +435,6 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
           onAssignTeamMember={handleAssignTeamMember}
         />
       )}
-    </div>
+    </DragDropContext>
   )
 }

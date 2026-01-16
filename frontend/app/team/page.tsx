@@ -24,6 +24,7 @@ export default function TeamPage() {
   const [availableSkills, setAvailableSkills] = useState<Skill[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [showSkillsModal, setShowSkillsModal] = useState(false)
+  const [activeSkillFilters, setActiveSkillFilters] = useState<string[]>([])
 
   // Load skills from the database when the page loads
   useEffect(() => {
@@ -58,8 +59,38 @@ export default function TeamPage() {
     loadTeamMembers()
   }, [])
 
-  // Filter team members based on search term (Name, Email, or Skills)
+  // Get all unique skills from team members
+  const allUniqueSkills = Array.from(
+    new Set(
+      teamMembers.flatMap(member => member.skills).filter(skill => skill && skill.trim() !== "")
+    )
+  ).sort()
+
+  // Toggle skill filter
+  const toggleSkillFilter = (skill: string) => {
+    setActiveSkillFilters(prev => 
+      prev.includes(skill) 
+        ? prev.filter(s => s !== skill)
+        : [...prev, skill]
+    )
+  }
+
+  // Clear all skill filters
+  const clearSkillFilters = () => {
+    setActiveSkillFilters([])
+  }
+
+  // Filter team members based on search term and skill filters
   const filteredTeamMembers = teamMembers.filter((member) => {
+    // Apply skill filters (OR logic: member must have at least one of the selected skills)
+    if (activeSkillFilters.length > 0) {
+      const hasMatchingSkill = activeSkillFilters.some(filterSkill =>
+        member.skills.includes(filterSkill)
+      )
+      if (!hasMatchingSkill) return false
+    }
+
+    // Apply search term filter
     if (searchTerm.trim() === "") return true
     
     const searchLower = searchTerm.toLowerCase()
@@ -178,6 +209,36 @@ export default function TeamPage() {
             </div>
           </div>
 
+          {/* Skills Filter Bar */}
+          {allUniqueSkills.length > 0 && (
+            <div className="mx-4 mt-4 p-4 bg-white/60 backdrop-blur-xl border border-white/40 rounded-[2rem] flex flex-wrap gap-2 shadow-sm">
+              {allUniqueSkills.map((skill) => {
+                const isActive = activeSkillFilters.includes(skill)
+                return (
+                  <button
+                    key={skill}
+                    onClick={() => toggleSkillFilter(skill)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
+                      isActive
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-indigo-200 shadow-lg scale-105"
+                        : "bg-white/50 text-slate-600 border-slate-200 hover:border-indigo-300"
+                    }`}
+                  >
+                    {skill}
+                  </button>
+                )
+              })}
+              {activeSkillFilters.length > 0 && (
+                <button
+                  onClick={clearSkillFilters}
+                  className="text-xs text-slate-400 underline hover:text-slate-600 transition-colors ml-auto self-center"
+                >
+                  Limpiar Filtros
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="p-6 pt-4 space-y-6 px-4">
 
             {isLoading ? (
@@ -208,19 +269,33 @@ export default function TeamPage() {
                 <div className="max-w-md mx-auto space-y-4">
                   <div className="text-6xl mb-4">👥</div>
                   <h3 className="text-xl font-semibold text-foreground">
-                    {teamMembers.length === 0 ? "No team members yet" : "No matching team members"}
+                    {teamMembers.length === 0 
+                      ? "No team members yet" 
+                      : activeSkillFilters.length > 0
+                      ? "No hay miembros con estas habilidades"
+                      : "No matching team members"}
                   </h3>
                   <p className="text-muted-foreground">
                     {teamMembers.length === 0 
                       ? "Get started by adding your first team member to the system."
+                      : activeSkillFilters.length > 0
+                      ? "Intenta ajustar los filtros de habilidades para ver más resultados."
                       : "Try adjusting your search criteria."}
                   </p>
-                  {teamMembers.length === 0 && (
+                  {teamMembers.length === 0 ? (
                     <Button className="gap-2 mt-4" onClick={() => setShowAddModal(true)}>
                       <Plus className="h-4 w-4" />
                       Add First Team Member
                     </Button>
-                  )}
+                  ) : activeSkillFilters.length > 0 ? (
+                    <Button 
+                      variant="outline" 
+                      className="gap-2 mt-4 rounded-2xl border-white/40 bg-white/50" 
+                      onClick={clearSkillFilters}
+                    >
+                      Resetear Filtros
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             ) : (

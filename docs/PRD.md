@@ -1,6 +1,6 @@
 1. Product Overview
 
-LinkOps AI is a streamlined web platform that allows businesses to capture client leads, summarize their needs using AI, and suggest the most suitable available team member. The platform automates the understanding of client requirements while keeping the assignment process simple, manual, and actionable.
+flowOPS AI is a streamlined web platform that allows businesses to capture client leads, summarize their needs using AI, and suggest the most suitable available team member. The platform automates the understanding of client requirements while keeping the assignment process simple, manual, and actionable.
 
  
 2. Target Goal (3-Week MVP)

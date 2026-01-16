@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 
-const SIDEBAR_STATE_KEY = 'linkops-sidebar-open'
+const SIDEBAR_STATE_KEY = 'flowops-sidebar-open'
 
 /**
  * Hook personalizado para persistir el estado del sidebar usando localStorage

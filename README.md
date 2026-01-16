@@ -8,8 +8,10 @@ Follow these steps in order to set up the development environment:
 
 ### 1. Clone the project
 ~~~
-git clone https://github.com/Krikin864/Bootcamp.git
-cd Bootcamp
+git clone https://github.com/Krikin864/FlowOPS-AI.git
+cd FlowOPS-AI
+
+
 ~~~
 ### 2. Install Dependencies (Two-Step Process)
 This project is structured with a clear separation between the data layer and the user interface.

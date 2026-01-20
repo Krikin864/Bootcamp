@@ -536,8 +536,8 @@ export async function updateOpportunityDetails(
       // If it's null, set as null (unassign)
       if (updates.assigned_user_id === null) {
         updateData.assigned_user_id = null
-        // Note: We don't automatically change status when unassigning
-        // The user can manually change status if needed
+        // Automatically change status to 'new' when unassigning
+        updateData.status = 'new'
       } else if (updates.assigned_user_id.trim() !== '') {
         // Validate that assigned_user_id is a valid UUID
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -549,6 +549,8 @@ export async function updateOpportunityDetails(
         // We'll get the current opportunity first to check its status
       } else {
         updateData.assigned_user_id = null
+        // Automatically change status to 'new' when unassigning
+        updateData.status = 'new'
       }
     }
     

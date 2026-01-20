@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CheckCircle2, AlertCircle } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { CheckCircle2, AlertCircle, Search } from "lucide-react"
 import { getTeamMembers, type TeamMember } from "@/services/members"
 
 interface Opportunity {
@@ -36,6 +37,7 @@ export default function TeamRecommendationModal({
 }: TeamRecommendationModalProps) {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState("")
 
   // Load team members from Supabase
   useEffect(() => {
@@ -72,48 +74,75 @@ export default function TeamRecommendationModal({
     ? opportunity.requiredSkill.length === 1 && opportunity.requiredSkill[0] === PENDING_OPTION
     : opportunity.requiredSkill === PENDING_OPTION
 
-  // Calculate match score for each member based on how many skill IDs match
+  // Calculate match type for each member based on skill IDs
+  type MatchType = 'perfect' | 'partial' | 'none'
+  
   interface MemberWithScore extends TeamMember {
-    matchScore: number
+    matchType: MatchType
     matchingSkillIds: string[]
+    matchingSkills: string[]
   }
 
   const membersWithScores = teamMembers.map((member) => {
-    // If only PENDING_OPTION is selected or no skills, show all members with equal score
+    // If only PENDING_OPTION is selected or no skills, show all members as neutral
     if (hasOnlyPending || requiredSkillIds.length === 0) {
-      return { ...member, matchScore: 0.5, matchingSkillIds: [] } as MemberWithScore // 0.5 = neutral score
+      return { ...member, matchType: 'none' as MatchType, matchingSkillIds: [], matchingSkills: [] } as MemberWithScore
     }
     
     // Compare skill IDs directly (more accurate than name comparison)
     const matchingSkillIds = member.skillIds.filter(skillId => 
       requiredSkillIds.includes(skillId)
     )
-    const matchScore = matchingSkillIds.length / requiredSkillIds.length // Percentage match
+    
+    // Determine match type
+    let matchType: MatchType = 'none'
+    if (matchingSkillIds.length === requiredSkillIds.length && requiredSkillIds.length > 0) {
+      matchType = 'perfect' // Has ALL required skills
+    } else if (matchingSkillIds.length > 0) {
+      matchType = 'partial' // Has SOME required skills
+    } else {
+      matchType = 'none' // Has NO required skills
+    }
     
     // Get matching skill names for display
     const matchingSkills = member.skills.filter((skillName, index) => 
       matchingSkillIds.includes(member.skillIds[index])
     )
     
-    return { ...member, matchScore, matchingSkillIds, matchingSkills } as MemberWithScore
+    return { ...member, matchType, matchingSkillIds, matchingSkills } as MemberWithScore
   })
 
-  // Filter and sort members by match score
-  // If only PENDING_OPTION, show all members equally
-  const matchingMembers: MemberWithScore[] = hasOnlyPending || requiredSkillIds.length === 0
-    ? membersWithScores.sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically
-    : membersWithScores
-        .filter(({ matchScore }) => matchScore > 0)
-        .sort((a, b) => b.matchScore - a.matchScore) // Sort by highest match score first
+  // Filter members by search query
+  const filteredMembers = membersWithScores.filter((member) => {
+    if (!searchQuery.trim()) return true
+    
+    const query = searchQuery.toLowerCase().trim()
+    const nameMatch = member.name.toLowerCase().includes(query)
+    const emailMatch = member.email?.toLowerCase().includes(query) || false
+    const skillsMatch = member.skills.some(skill => skill.toLowerCase().includes(query))
+    
+    return nameMatch || emailMatch || skillsMatch
+  })
+
+  // Sort members: perfect matches first, then partial, then none
+  const sortByMatchType = (a: MemberWithScore, b: MemberWithScore): number => {
+    const order: Record<MatchType, number> = { perfect: 0, partial: 1, none: 2 }
+    if (order[a.matchType] !== order[b.matchType]) {
+      return order[a.matchType] - order[b.matchType]
+    }
+    // If same type, sort alphabetically
+    return a.name.localeCompare(b.name)
+  }
+
+  // Filter and sort members by match type
+  const sortedMembers: MemberWithScore[] = hasOnlyPending || requiredSkillIds.length === 0
+    ? filteredMembers.sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically if no skills
+    : filteredMembers.sort(sortByMatchType)
   
-  // Only show alternative members if no skills were extracted by AI or only PENDING_OPTION
-  // If skills were extracted, only show matching members
-  const shouldShowAlternatives = hasOnlyPending || requiredSkillIds.length === 0
-  const allOtherMembers = shouldShowAlternatives 
-    ? [] // Don't show alternatives if PENDING_OPTION is selected (all members are shown as matches)
-    : membersWithScores
-        .filter(({ matchScore }) => matchScore === 0)
-        .map(({ member }) => member)
+  // Separate members by match type for display
+  const perfectMatches = sortedMembers.filter(m => m.matchType === 'perfect')
+  const partialMatches = sortedMembers.filter(m => m.matchType === 'partial')
+  const noMatches = sortedMembers.filter(m => m.matchType === 'none')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -137,7 +166,7 @@ export default function TeamRecommendationModal({
                       Pending / No specific skill
                     </span>
                     <span className="text-sm text-slate-600">
-                      Showing all {matchingMembers.length} team member{matchingMembers.length !== 1 ? "s" : ""}
+                      Showing all {sortedMembers.length} team member{sortedMembers.length !== 1 ? "s" : ""}
                     </span>
                   </>
                 ) : requiredSkills.length > 0 ? (
@@ -148,7 +177,7 @@ export default function TeamRecommendationModal({
                       </span>
                     ))}
                     <span className="text-sm text-slate-600">
-                      {matchingMembers.length} team member{matchingMembers.length !== 1 ? "s" : ""} with {requiredSkillIds.length > 1 ? 'these skills' : 'this skill'}
+                      {perfectMatches.length + partialMatches.length} team member{(perfectMatches.length + partialMatches.length) !== 1 ? "s" : ""} with {requiredSkillIds.length > 1 ? 'these skills' : 'this skill'}
                     </span>
                   </>
                 ) : (
@@ -173,8 +202,20 @@ export default function TeamRecommendationModal({
             </div>
           ) : (
             <>
-              {/* Recommended Team Members (Matching Skills) */}
-              {!hasOnlyPending && requiredSkills.length > 0 && matchingMembers.length === 0 ? (
+              {/* Search Bar - Always visible */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                <Input
+                  type="text"
+                  placeholder="Search by name, email, or skills..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 rounded-xl border-white/40 bg-white/50 backdrop-blur-sm focus:bg-white/80"
+                />
+              </div>
+
+              {/* No matches found message */}
+              {!hasOnlyPending && requiredSkills.length > 0 && perfectMatches.length === 0 && partialMatches.length === 0 ? (
                 <div className="space-y-4">
                   <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-4 space-y-2 backdrop-blur-sm">
                     <div className="flex items-center gap-2">
@@ -182,178 +223,254 @@ export default function TeamRecommendationModal({
                       <p className="text-sm font-semibold text-slate-800">No exact matches found</p>
                     </div>
                     <p className="text-xs text-slate-600">
-                      No team members have the required skill{requiredSkills.length > 1 ? 's' : ''}: {requiredSkills.join(', ')}. Showing all available members.
+                      No team members have the required skill{requiredSkills.length > 1 ? 's' : ''}: {requiredSkills.join(', ')}. Showing all available members below.
                     </p>
                   </div>
-                  <div className="space-y-3">
-                    {teamMembers.map((member) => (
-                      <div
-                        key={member.id}
-                        className="flex items-center justify-between p-5 bg-white/70 backdrop-blur-xl border border-white/40 rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.12)] transition-all opacity-75 hover:opacity-100"
-                      >
-                        <div className="flex-1">
-                          <p className="font-bold text-slate-800 text-base">{member.name}</p>
-                          {member.email && (
-                            <p className="text-xs text-slate-600 mt-1">{member.email}</p>
-                          )}
-                          <div className="flex gap-2 mt-3 flex-wrap">
-                            {member.skills.length > 0 ? (
-                              member.skills.map((skill) => (
-                                <span 
-                                  key={skill} 
-                                  className="text-xs px-3 py-1.5 bg-white rounded-full text-slate-700 font-medium shadow-md border border-white/60 opacity-60"
-                                >
-                                  {skill}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-xs text-slate-600 italic">No skills assigned</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-6 ml-6">
-                          <div className="text-right">
-                            <p className="text-xs text-slate-600">Current</p>
-                            <p className="font-semibold text-slate-800">{member.activeOpportunities} tasks</p>
-                          </div>
-                          <Button
-                            onClick={() => {
-                              onAssignTeamMember(member.id)
-                              onOpenChange(false)
-                            }}
-                            className="rounded-2xl"
-                          >
-                            Assign
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
                 </div>
-              ) : (hasOnlyPending || matchingMembers.length > 0) && (
-                <div className="space-y-3">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                    {hasOnlyPending ? "ALL TEAM MEMBERS" : "RECOMMENDED MATCHES"}
-                  </h3>
-                  <div className="space-y-3">
-                    {matchingMembers.map((member) => (
-                      <div
-                        key={member.id}
-                        className="flex items-center justify-between p-5 bg-white/70 backdrop-blur-xl border border-white/40 rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.12)] transition-all"
-                      >
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <p className="font-bold text-slate-800 text-base">{member.name}</p>
-                            {!hasOnlyPending && member.matchScore > 0 && (
-                              <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-700 rounded-full font-semibold">
-                                {Math.round(member.matchScore * 100)}% Match
-                              </span>
-                            )}
-                          </div>
-                          {member.email && (
-                            <p className="text-xs text-slate-600 mt-1">{member.email}</p>
-                          )}
-                          <div className="flex gap-2 mt-3 flex-wrap">
-                            {member.skills.length > 0 ? (
-                              member.skills.map((skill, index) => {
-                                const skillId = member.skillIds[index]
-                                const isMatching = skillId && member.matchingSkillIds.includes(skillId)
-                                return (
-                                  <span
-                                    key={skill}
-                                    className={`text-xs px-3 py-1.5 rounded-full font-medium shadow-md border border-white/60 ${
-                                      isMatching
-                                        ? "bg-white text-slate-800"
-                                        : "bg-white/70 text-slate-700"
-                                    }`}
-                                  >
-                                    {skill}
-                                  </span>
-                                )
-                              })
-                            ) : (
-                              <span className="text-xs text-slate-600 italic">No skills assigned</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-6 ml-6">
-                          <div className="text-right">
-                            <p className="text-xs text-slate-600">Current</p>
-                            <p className="font-semibold text-slate-800">{member.activeOpportunities} tasks</p>
-                          </div>
-                          <Button
-                            onClick={() => {
-                              onAssignTeamMember(member.id)
-                              onOpenChange(false)
-                            }}
-                            className="rounded-2xl"
-                          >
-                            Assign
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              ) : null}
 
-              {/* Alternative Team Members - Only show if there are matching members and alternatives exist */}
-              {matchingMembers.length > 0 && allOtherMembers.length > 0 && (
-                <div className="space-y-4">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-                    <AlertCircle className="h-3 w-3 text-yellow-500" />
-                    ALTERNATIVE OPTIONS
-                  </h3>
-                  <p className="text-sm text-slate-600">
-                    These team members don't have the required skill{requiredSkills.length > 1 ? 's' : ''} but can be assigned if needed.
-                  </p>
-                  <div className="space-y-3">
-                    {allOtherMembers.map((member) => (
-                      <div
-                        key={member.id}
-                        className="flex items-center justify-between p-5 bg-white/70 backdrop-blur-xl border border-white/40 rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.12)] transition-all opacity-75 hover:opacity-100"
-                      >
-                        <div className="flex-1">
-                          <p className="font-bold text-slate-800 text-base">{member.name}</p>
-                          {member.email && (
-                            <p className="text-xs text-slate-600 mt-1">{member.email}</p>
-                          )}
-                          <div className="flex gap-2 mt-3 flex-wrap">
-                            {member.skills.length > 0 ? (
-                              member.skills.map((skill) => (
-                                <span 
-                                  key={skill} 
-                                  className="text-xs px-3 py-1.5 bg-white rounded-full text-slate-700 font-medium shadow-md border border-white/60 opacity-60"
+              {/* List of members */}
+              <div className="space-y-4">
+                {/* Lista con scroll fijo */}
+                <div className="max-h-[500px] overflow-y-auto space-y-4 pr-2">
+                    {/* Perfect Matches - Verde */}
+                    {perfectMatches.length > 0 && (
+                      <div className="space-y-2">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 sticky top-0 bg-white/80 backdrop-blur-sm py-2 z-10">
+                          <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                          PERFECT MATCHES
+                        </h3>
+                        <div className="space-y-2">
+                          {perfectMatches.map((member) => (
+                            <div
+                              key={member.id}
+                              className="flex items-center justify-between p-3 bg-white/70 backdrop-blur-xl border-l-4 border-green-500 rounded-xl shadow-sm hover:shadow-md transition-all"
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p className="font-semibold text-slate-800 text-sm">{member.name}</p>
+                                </div>
+                                {member.email && (
+                                  <p className="text-xs text-slate-500">{member.email}</p>
+                                )}
+                                {member.skills.length > 0 && (
+                                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                                    {member.skills.map((skill, index) => {
+                                      const skillId = member.skillIds[index]
+                                      const isMatching = skillId && member.matchingSkillIds.includes(skillId)
+                                      return (
+                                        <span
+                                          key={skill}
+                                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                            isMatching
+                                              ? "bg-green-100 text-green-700 border border-green-300"
+                                              : "bg-slate-100 text-slate-600 border border-slate-200"
+                                          }`}
+                                        >
+                                          {skill}
+                                        </span>
+                                      )
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4 ml-4">
+                                <div className="text-right">
+                                  <p className="text-xs text-slate-500">Current</p>
+                                  <p className="font-semibold text-slate-800 text-sm">{member.activeOpportunities}</p>
+                                </div>
+                                <Button
+                                  onClick={() => {
+                                    onAssignTeamMember(member.id)
+                                    onOpenChange(false)
+                                  }}
+                                  className="rounded-xl text-xs px-4 py-1.5"
+                                  size="sm"
                                 >
-                                  {skill}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="text-xs text-slate-600 italic">No skills assigned</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-6 ml-6">
-                          <div className="text-right">
-                            <p className="text-xs text-slate-600">Current</p>
-                            <p className="font-semibold text-slate-800">{member.activeOpportunities} tasks</p>
-                          </div>
-                          <Button
-                            onClick={() => {
-                              onAssignTeamMember(member.id)
-                              onOpenChange(false)
-                            }}
-                            className="rounded-2xl"
-                          >
-                            Assign
-                          </Button>
+                                  Assign
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
-                    ))}
-                  </div>
+                    )}
+
+                    {/* Partial Matches - Amarillo/Naranja */}
+                    {partialMatches.length > 0 && (
+                      <div className="space-y-2">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 sticky top-0 bg-white/80 backdrop-blur-sm py-2 z-10">
+                          <div className="w-2 h-2 rounded-full bg-yellow-500"></div>
+                          PARTIAL MATCHES
+                        </h3>
+                        <div className="space-y-2">
+                          {partialMatches.map((member) => (
+                            <div
+                              key={member.id}
+                              className="flex items-center justify-between p-3 bg-white/70 backdrop-blur-xl border-l-4 border-yellow-500 rounded-xl shadow-sm hover:shadow-md transition-all"
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p className="font-semibold text-slate-800 text-sm">{member.name}</p>
+                                </div>
+                                {member.email && (
+                                  <p className="text-xs text-slate-500">{member.email}</p>
+                                )}
+                                {member.skills.length > 0 && (
+                                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                                    {member.skills.map((skill, index) => {
+                                      const skillId = member.skillIds[index]
+                                      const isMatching = skillId && member.matchingSkillIds.includes(skillId)
+                                      return (
+                                        <span
+                                          key={skill}
+                                          className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                            isMatching
+                                              ? "bg-yellow-100 text-yellow-700 border border-yellow-300"
+                                              : "bg-slate-100 text-slate-600 border border-slate-200"
+                                          }`}
+                                        >
+                                          {skill}
+                                        </span>
+                                      )
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4 ml-4">
+                                <div className="text-right">
+                                  <p className="text-xs text-slate-500">Current</p>
+                                  <p className="font-semibold text-slate-800 text-sm">{member.activeOpportunities}</p>
+                                </div>
+                                <Button
+                                  onClick={() => {
+                                    onAssignTeamMember(member.id)
+                                    onOpenChange(false)
+                                  }}
+                                  className="rounded-xl text-xs px-4 py-1.5"
+                                  size="sm"
+                                >
+                                  Assign
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* No Matches - Gris */}
+                    {noMatches.length > 0 && (
+                      <div className="space-y-2">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 sticky top-0 bg-white/80 backdrop-blur-sm py-2 z-10">
+                          <div className="w-2 h-2 rounded-full bg-slate-400"></div>
+                          AVAILABLE MEMBERS
+                        </h3>
+                        <div className="space-y-2">
+                          {noMatches.map((member) => (
+                            <div
+                              key={member.id}
+                              className="flex items-center justify-between p-3 bg-white/70 backdrop-blur-xl border-l-4 border-slate-300 rounded-xl shadow-sm hover:shadow-md transition-all opacity-75 hover:opacity-100"
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p className="font-semibold text-slate-800 text-sm">{member.name}</p>
+                                </div>
+                                {member.email && (
+                                  <p className="text-xs text-slate-500">{member.email}</p>
+                                )}
+                                {member.skills.length > 0 && (
+                                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                                    {member.skills.map((skill) => (
+                                      <span
+                                        key={skill}
+                                        className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-full font-medium opacity-60"
+                                      >
+                                        {skill}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4 ml-4">
+                                <div className="text-right">
+                                  <p className="text-xs text-slate-500">Current</p>
+                                  <p className="font-semibold text-slate-800 text-sm">{member.activeOpportunities}</p>
+                                </div>
+                                <Button
+                                  onClick={() => {
+                                    onAssignTeamMember(member.id)
+                                    onOpenChange(false)
+                                  }}
+                                  className="rounded-xl text-xs px-4 py-1.5"
+                                  size="sm"
+                                  variant="outline"
+                                >
+                                  Assign
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Si no hay skills requeridas, mostrar todos */}
+                    {(hasOnlyPending || requiredSkillIds.length === 0) && sortedMembers.length > 0 && (
+                      <div className="space-y-2">
+                        <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2 sticky top-0 bg-white/80 backdrop-blur-sm py-2 z-10">
+                          <CheckCircle2 className="h-3 w-3 text-slate-500" />
+                          ALL TEAM MEMBERS
+                        </h3>
+                        <div className="space-y-2">
+                          {sortedMembers.map((member) => (
+                            <div
+                              key={member.id}
+                              className="flex items-center justify-between p-3 bg-white/70 backdrop-blur-xl border-l-4 border-slate-300 rounded-xl shadow-sm hover:shadow-md transition-all"
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p className="font-semibold text-slate-800 text-sm">{member.name}</p>
+                                </div>
+                                {member.email && (
+                                  <p className="text-xs text-slate-500">{member.email}</p>
+                                )}
+                                {member.skills.length > 0 && (
+                                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                                    {member.skills.map((skill) => (
+                                      <span
+                                        key={skill}
+                                        className="text-xs px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200 rounded-full font-medium"
+                                      >
+                                        {skill}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-4 ml-4">
+                                <div className="text-right">
+                                  <p className="text-xs text-slate-500">Current</p>
+                                  <p className="font-semibold text-slate-800 text-sm">{member.activeOpportunities}</p>
+                                </div>
+                                <Button
+                                  onClick={() => {
+                                    onAssignTeamMember(member.id)
+                                    onOpenChange(false)
+                                  }}
+                                  className="rounded-xl text-xs px-4 py-1.5"
+                                  size="sm"
+                                >
+                                  Assign
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                 </div>
-              )}
+              </div>
             </>
           )}
 

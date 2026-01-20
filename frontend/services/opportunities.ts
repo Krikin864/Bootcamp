@@ -456,6 +456,7 @@ export async function updateOpportunityDetails(
     ai_summary?: string
     urgency?: string
     assigned_user_id?: string | null
+    original_message?: string
   },
   skillIds?: string[]
 ): Promise<Opportunity | null> {
@@ -475,6 +476,10 @@ export async function updateOpportunityDetails(
     if (updates.urgency !== undefined) {
       // Normalize urgency to lowercase
       updateData.urgency = updates.urgency.toLowerCase()
+    }
+    
+    if (updates.original_message !== undefined) {
+      updateData.original_message = updates.original_message
     }
     
     // Note: required_skill_id is kept for backward compatibility but we use opportunity_skill for many-to-many

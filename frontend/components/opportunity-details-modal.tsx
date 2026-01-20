@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MultiSelect } from "@/components/ui/multi-select"
+import { Skeleton } from "@/components/ui/skeleton"
 import { getSkills, type Skill } from "@/services/skills"
 import { getTeamMembers, type TeamMember } from "@/services/members"
 import { updateOpportunityDetails, updateOpportunityStatus, deleteOpportunity, type Opportunity } from "@/services/opportunities"
@@ -45,15 +46,35 @@ export default function OpportunityDetailsModal({
   const dangerZoneRef = useRef<HTMLDivElement>(null)
   const [editedValues, setEditedValues] = useState({
     summary: "",
+    originalMessage: "",
     selectedSkills: [] as string[], // Array of skill names
     skillId: "none", // Keep for backward compatibility (first skill ID)
     urgency: "",
     assignedMemberId: "none", // Use "none" instead of "" to avoid Select component error
   })
+  const [isRegenerating, setIsRegenerating] = useState(false)
+  const [proposedChanges, setProposedChanges] = useState<{
+    summary: string
+    urgency: string
+    skills: string[]
+  } | null>(null)
+  const [hasOriginalMessageChanges, setHasOriginalMessageChanges] = useState(false)
 
   // Reset danger zone popover visibility when modal opens/closes
   useEffect(() => {
     setShowDangerZonePopover(false)
+  }, [opportunity])
+
+  // Initialize originalMessage when opportunity changes
+  useEffect(() => {
+    if (opportunity) {
+      setEditedValues(prev => ({
+        ...prev,
+        originalMessage: opportunity.summary || ""
+      }))
+      setHasOriginalMessageChanges(false)
+      setProposedChanges(null)
+    }
   }, [opportunity])
 
   // Close popover when clicking outside
@@ -95,8 +116,12 @@ export default function OpportunityDetailsModal({
           ? opportunity.requiredSkill.filter(s => s && s !== '')
           : (opportunity.requiredSkill && opportunity.requiredSkill !== '' ? [opportunity.requiredSkill] : [])
         
-        // Set selected skills (array of names)
-        setEditedValues(prev => ({ ...prev, selectedSkills: currentSkills }))
+        // Set selected skills (array of names) and original message
+        setEditedValues(prev => ({ 
+          ...prev, 
+          selectedSkills: currentSkills,
+          originalMessage: opportunity.summary || "" // original_message is stored in summary field
+        }))
         
         // Find the ID of the first skill for backward compatibility
         if (currentSkills.length > 0 && currentSkills[0] && skillsData.length > 0) {
@@ -159,6 +184,7 @@ export default function OpportunityDetailsModal({
       : (opportunity.requiredSkill && opportunity.requiredSkill !== '' ? [opportunity.requiredSkill] : [])
     setEditedValues({
       summary: opportunity.aiSummary,
+      originalMessage: opportunity.summary || "", // original_message is stored in summary field
       selectedSkills: currentSkills,
       skillId: "none", // Will be set when skills are loaded
       urgency: opportunity.urgency,
@@ -166,6 +192,8 @@ export default function OpportunityDetailsModal({
     })
     setSummaryError("") // Reset error when starting to edit
     setSkillError("") // Reset skill error when starting to edit
+    setHasOriginalMessageChanges(false)
+    setProposedChanges(null)
     setIsEditing(true)
   }
 
@@ -290,6 +318,180 @@ export default function OpportunityDetailsModal({
     }
   }
 
+  const handleSaveOriginalMessage = async () => {
+    if (!opportunity) return
+
+    try {
+      setIsSaving(true)
+      
+      // Update original_message using updateOpportunityDetails
+      const updatedOpportunity = await updateOpportunityDetails(
+        opportunity.id,
+        { original_message: editedValues.originalMessage.trim() },
+        undefined
+      )
+
+      if (!updatedOpportunity) {
+        throw new Error('Failed to update original message')
+      }
+
+      setHasOriginalMessageChanges(false)
+      toast.success('Original message updated successfully')
+      
+      // Update the opportunity object
+      if (onSaveEdits) {
+        const opportunityWithUpdatedSummary = {
+          ...updatedOpportunity,
+          summary: editedValues.originalMessage.trim()
+        }
+        onSaveEdits(opportunityWithUpdatedSummary)
+      }
+    } catch (error: any) {
+      toast.error(`Failed to update original message: ${error.message || 'Unknown error'}`)
+      console.error('Error saving original message:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleRegenerateAnalysis = async () => {
+    if (!opportunity || !editedValues.originalMessage.trim()) return
+
+    try {
+      setIsRegenerating(true)
+      setProposedChanges(null)
+
+      // Call the AI API to process the edited message
+      const response = await fetch('/api/ai/process-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          emailContent: editedValues.originalMessage.trim(),
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        let errorData
+        try {
+          errorData = JSON.parse(errorText)
+        } catch {
+          errorData = { error: errorText || 'Error processing email' }
+        }
+        throw new Error(errorData.error || 'Error processing email')
+      }
+
+      const aiResult = await response.json()
+
+      // Map priority to urgency
+      const priorityToUrgency: Record<string, string> = {
+        'Low': 'low',
+        'Medium': 'medium',
+        'High': 'high',
+      }
+
+      // Map AI suggested skills to actual skills from DB
+      const suggestedSkills: string[] = []
+      if (aiResult.required_skills && Array.isArray(aiResult.required_skills)) {
+        for (const reqSkill of aiResult.required_skills) {
+          const matchedSkill = skills.find(skill => 
+            skill.name.toLowerCase() === reqSkill.toLowerCase()
+          )
+          if (matchedSkill) {
+            suggestedSkills.push(matchedSkill.name)
+          } else {
+            // Find partial match
+            const partialMatch = skills.find(skill => 
+              skill.name.toLowerCase().includes(reqSkill.toLowerCase()) ||
+              reqSkill.toLowerCase().includes(skill.name.toLowerCase())
+            )
+            if (partialMatch) {
+              suggestedSkills.push(partialMatch.name)
+            } else {
+              // Use as-is if no match
+              suggestedSkills.push(reqSkill.charAt(0).toUpperCase() + reqSkill.slice(1).toLowerCase())
+            }
+          }
+        }
+      }
+
+      // Store proposed changes
+      setProposedChanges({
+        summary: aiResult.summary || '',
+        urgency: priorityToUrgency[aiResult.priority] || 'medium',
+        skills: [...new Set(suggestedSkills)]
+      })
+    } catch (error: any) {
+      toast.error(`Failed to regenerate analysis: ${error.message || 'Unknown error'}`)
+      console.error('Error regenerating analysis:', error)
+    } finally {
+      setIsRegenerating(false)
+    }
+  }
+
+  const handleApplyChanges = async () => {
+    if (!opportunity || !proposedChanges) return
+
+    try {
+      setIsSaving(true)
+
+      // Convert skill names to IDs
+      const skillIds: string[] = []
+      for (const skillName of proposedChanges.skills) {
+        const skill = skills.find(s => s.name.toLowerCase() === skillName.toLowerCase())
+        if (skill) {
+          skillIds.push(skill.id)
+        }
+      }
+
+      // Update opportunity with proposed changes
+      const updates: {
+        ai_summary?: string
+        urgency?: string
+        original_message?: string
+      } = {
+        ai_summary: proposedChanges.summary,
+        urgency: proposedChanges.urgency,
+        original_message: editedValues.originalMessage.trim()
+      }
+
+      const updatedOpportunity = await updateOpportunityDetails(opportunity.id, updates, skillIds.length > 0 ? skillIds : undefined)
+
+      if (updatedOpportunity && onSaveEdits) {
+        const opportunityWithFullSkills = {
+          ...updatedOpportunity,
+          requiredSkill: proposedChanges.skills.length > 0 
+            ? (proposedChanges.skills.length === 1 ? proposedChanges.skills[0] : proposedChanges.skills)
+            : []
+        }
+        onSaveEdits(opportunityWithFullSkills)
+        
+        // Update local state
+        setEditedValues(prev => ({
+          ...prev,
+          summary: proposedChanges.summary,
+          urgency: proposedChanges.urgency,
+          selectedSkills: proposedChanges.skills
+        }))
+        setHasOriginalMessageChanges(false)
+        setProposedChanges(null)
+        toast.success('Changes applied successfully')
+      }
+    } catch (error: any) {
+      toast.error(`Failed to apply changes: ${error.message || 'Unknown error'}`)
+      console.error('Error applying changes:', error)
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const handleDiscardChanges = () => {
+    setProposedChanges(null)
+    toast.info('Changes discarded')
+  }
+
   if (!opportunity) return null
 
   const currentSkills = Array.isArray(opportunity.requiredSkill)
@@ -319,6 +521,131 @@ export default function OpportunityDetailsModal({
             </div>
           </div>
 
+          {/* Original Message - Editable */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">ORIGINAL MESSAGE</h3>
+              {hasOriginalMessageChanges && !isRegenerating && (
+                <Button
+                  size="sm"
+                  onClick={handleSaveOriginalMessage}
+                  disabled={isSaving}
+                  className="gap-2"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save'
+                  )}
+                </Button>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Textarea
+                value={editedValues.originalMessage}
+                onChange={(e) => {
+                  const newValue = e.target.value
+                  setEditedValues((prev) => ({ ...prev, originalMessage: newValue }))
+                  setHasOriginalMessageChanges(newValue.trim() !== (opportunity.summary || "").trim())
+                }}
+                rows={6}
+                className="bg-white/50 backdrop-blur-sm text-base rounded-2xl border border-white/40"
+                disabled={isSaving || isRegenerating}
+                placeholder="Enter the original client message..."
+              />
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRegenerateAnalysis}
+                  disabled={isRegenerating || !editedValues.originalMessage.trim()}
+                  className="gap-2"
+                >
+                  {isRegenerating ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Regenerating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-3 w-3" />
+                      Regenerate with AI
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Proposed Changes */}
+          {proposedChanges && (
+            <div className="space-y-4 p-6 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 backdrop-blur-sm rounded-2xl border-2 border-indigo-200/50">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-indigo-700 flex items-center gap-2">
+                  <Sparkles className="h-3 w-3" />
+                  PROPOSED CHANGES
+                </h3>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDiscardChanges}
+                    disabled={isSaving}
+                    className="gap-2"
+                  >
+                    Discard
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleApplyChanges}
+                    disabled={isSaving}
+                    className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-400"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Applying...
+                      </>
+                    ) : (
+                      'Apply Changes'
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-600 block mb-2">New Summary</label>
+                  <div className="bg-white/70 backdrop-blur-sm p-4 rounded-xl border border-white/40">
+                    <p className="text-slate-800 leading-relaxed">{proposedChanges.summary}</p>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600 block mb-2">New Urgency</label>
+                  <Badge className={`${urgencyColors[proposedChanges.urgency as keyof typeof urgencyColors]} text-sm`}>
+                    {proposedChanges.urgency.charAt(0).toUpperCase() + proposedChanges.urgency.slice(1)}
+                  </Badge>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600 block mb-2">New Skills</label>
+                  <div className="flex flex-wrap gap-2">
+                    {proposedChanges.skills.length > 0 ? (
+                      proposedChanges.skills.map((skill) => (
+                        <Badge key={skill} variant="secondary" className="text-xs">
+                          {skill}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="text-sm text-slate-500 italic">No skills suggested</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* AI Summary - View and Edit Modes */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -342,7 +669,21 @@ export default function OpportunityDetailsModal({
 
             {!isEditing ? (
               <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/40">
-                <p className="text-slate-800 leading-relaxed text-base">{opportunity.aiSummary}</p>
+                {isRegenerating ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <span className="text-sm text-slate-600">AI is analyzing the updated message...</span>
+                    </div>
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                      <Skeleton className="h-4 w-5/6" />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-slate-800 leading-relaxed text-base">{opportunity.aiSummary}</p>
+                )}
               </div>
             ) : (
               <div className="space-y-2">
@@ -366,7 +707,7 @@ export default function OpportunityDetailsModal({
                       ? "border-destructive focus-visible:ring-destructive" 
                       : ""
                   }`}
-                  disabled={isSaving}
+                  disabled={isSaving || isRegenerating}
                 />
                 {summaryError && (
                   <p className="text-sm text-destructive flex items-center gap-1">

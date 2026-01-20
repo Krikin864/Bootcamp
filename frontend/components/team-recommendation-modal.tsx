@@ -60,11 +60,30 @@ export default function TeamRecommendationModal({
     ? opportunity.requiredSkill 
     : [opportunity.requiredSkill].filter(skill => skill && skill !== '')
 
+  // Calculate skill matches for each member and sort by match count (not workload)
+  const membersWithScores = teamMembers.map((member) => {
+    const matchCount = requiredSkills.length > 0
+      ? requiredSkills.filter(skill => member.skills.includes(skill)).length
+      : 0
+    return {
+      member,
+      matchCount,
+      hasHighWorkload: member.activeOpportunities >= 3
+    }
+  })
+
+  // Sort by match count (descending), then by name
+  membersWithScores.sort((a, b) => {
+    if (b.matchCount !== a.matchCount) {
+      return b.matchCount - a.matchCount
+    }
+    return a.member.name.localeCompare(b.member.name)
+  })
+
   // Filter members who have at least one of the required skills
-  // When AI extracts skills, only show members with matching skills
-  const matchingMembers = teamMembers.filter((member) =>
-    requiredSkills.length > 0 && requiredSkills.some(skill => member.skills.includes(skill))
-  )
+  const matchingMembers = membersWithScores
+    .filter(item => item.matchCount > 0)
+    .map(item => item.member)
   
   // Only show alternative members if no skills were extracted by AI
   // If skills were extracted, only show matching members
@@ -188,13 +207,25 @@ export default function TeamRecommendationModal({
                     RECOMMENDED MATCHES
                   </h3>
                   <div className="space-y-3">
-                    {matchingMembers.map((member) => (
+                    {membersWithScores
+                      .filter(item => item.matchCount > 0)
+                      .map(({ member, matchCount, hasHighWorkload }) => (
                       <div
                         key={member.id}
                         className="flex items-center justify-between p-5 bg-white/70 backdrop-blur-xl border border-white/40 rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.12)] transition-all"
                       >
                         <div className="flex-1">
-                          <p className="font-bold text-slate-800 text-base">{member.name}</p>
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-bold text-slate-800 text-base">{member.name}</p>
+                            {hasHighWorkload && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-500/10 text-yellow-600 text-xs rounded-full border border-yellow-500/20">
+                                ⚠️ High Workload
+                              </span>
+                            )}
+                            <span className="text-xs text-slate-500">
+                              ({matchCount} match{matchCount !== 1 ? 'es' : ''})
+                            </span>
+                          </div>
                           {member.email && (
                             <p className="text-xs text-slate-600 mt-1">{member.email}</p>
                           )}

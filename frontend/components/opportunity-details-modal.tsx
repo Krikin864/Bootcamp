@@ -531,35 +531,33 @@ export default function OpportunityDetailsModal({
 
           {/* Actions Footer */}
           <div className="flex gap-6 justify-between items-center pt-8 border-t border-white/30 -mx-10 -mb-10 px-10 pb-10">
-            {/* Danger Zone button on the left - Only show for active opportunities */}
+            {/* Advanced Settings button on the left - Only show for active opportunities */}
             {!isEditing && opportunity && ['new', 'assigned', 'done'].includes(opportunity.status) && (onCancel || onDelete) && (
               <div className="relative" ref={dangerZoneRef}>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowDangerZonePopover(!showDangerZonePopover)}
-                  className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  className="text-slate-600 hover:text-slate-800 border border-slate-200/50 bg-transparent hover:bg-slate-50/50"
                 >
-                  <AlertTriangle className="h-4 w-4 mr-1.5" />
-                  <span className="text-sm">Danger Zone</span>
+                  <span className="text-sm">Advanced Settings</span>
                 </Button>
 
                 {/* Popover menu - opens upward */}
                 {showDangerZonePopover && (
-                  <div className="absolute bottom-full left-0 mb-2 w-80 bg-white/90 backdrop-blur-xl border border-white/40 rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.15)] z-50">
-                    <div className="bg-destructive/5 border-b border-destructive/20 rounded-t-lg p-3">
+                  <div className="absolute bottom-full left-0 mb-2 w-80 bg-white/90 backdrop-blur-xl border border-slate-200/50 rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.15)] z-50">
+                    <div className="bg-slate-50/50 border-b border-slate-200/50 rounded-t-2xl p-3">
                       <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle className="h-4 w-4 text-destructive" />
-                        <h4 className="font-semibold text-foreground text-sm">Danger Zone</h4>
+                        <h4 className="font-semibold text-slate-800 text-sm">Advanced Settings</h4>
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-slate-600">
                         These actions cannot be undone. Cancelling an opportunity will remove it from the active pipeline. Deleting will permanently remove it.
                       </p>
                     </div>
                     <div className="p-3 space-y-2">
                       {onCancel && (
                         <Button
-                          variant="destructive"
+                          variant="outline"
                           size="sm"
                           onClick={async () => {
                             if (!opportunity) return
@@ -573,14 +571,14 @@ export default function OpportunityDetailsModal({
                               toast.error(`Failed to cancel opportunity: ${error.message || 'Unknown error'}`)
                             }
                           }}
-                          className="w-full"
+                          className="w-full border-slate-200 hover:bg-slate-50"
                         >
                           Cancel Opportunity
                         </Button>
                       )}
                       {onDelete && (
                         <Button
-                          variant="destructive"
+                          variant="outline"
                           size="sm"
                           onClick={async () => {
                             if (!opportunity) return
@@ -611,7 +609,7 @@ export default function OpportunityDetailsModal({
                             }
                           }}
                           disabled={isDeleting}
-                          className="w-full"
+                          className="w-full border-slate-200 hover:bg-destructive hover:text-destructive-foreground hover:border-destructive"
                         >
                           {isDeleting ? (
                             <>
@@ -642,7 +640,7 @@ export default function OpportunityDetailsModal({
                   </Button>
                   <Button 
                     onClick={handleSaveEdits}
-                    disabled={isSaving || editedValues.summary.trim() === "" || editedValues.skillId === "none"}
+                    disabled={isSaving || editedValues.summary.trim() === ""}
                   >
                     {isSaving ? (
                       <>

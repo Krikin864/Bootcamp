@@ -704,7 +704,7 @@ export async function updateOpportunityDetails(
  * @param originalMessage - Original client message
  * @param aiSummary - AI-generated summary
  * @param urgency - Urgency: "high", "medium", or "low"
- * @param requiredSkillId - Required skill ID (UUID) or null
+ * @param requiredSkillNames - Array of skill names (strings) or null
  * @returns The created opportunity
  */
 export async function createOpportunity(
@@ -712,7 +712,7 @@ export async function createOpportunity(
   originalMessage: string,
   aiSummary: string,
   urgency: "high" | "medium" | "low" = "medium",
-  requiredSkillId: string | null = null
+  requiredSkillNames: string[] | null = null
 ): Promise<Opportunity> {
   try {
     // Validate that clientId is a valid UUID
@@ -721,11 +721,56 @@ export async function createOpportunity(
       throw new Error(`Invalid UUID format for client_id: ${clientId}`)
     }
 
-    // Validate requiredSkillId if provided
-    if (requiredSkillId && !uuidRegex.test(requiredSkillId)) {
-      throw new Error(`Invalid UUID format for required_skill_id: ${requiredSkillId}`)
+    // Process skills: find or create skills in the database
+    let skillIds: string[] = []
+    let firstSkillId: string | null = null
+    
+    if (requiredSkillNames && requiredSkillNames.length > 0) {
+      // Get all existing skills from database
+      const { data: existingSkills } = await supabase
+        .from("Skills")
+        .select('id, name')
+
+      const skillsMap = new Map((existingSkills || []).map(s => [s.name.toLowerCase(), s.id]))
+
+      // For each skill name, find or create the skill
+      for (const skillName of requiredSkillNames) {
+        const trimmedName = skillName.trim()
+        if (!trimmedName) continue
+
+        const lowerName = trimmedName.toLowerCase()
+        let skillId = skillsMap.get(lowerName)
+
+        // If skill doesn't exist, create it
+        if (!skillId) {
+          const { data: newSkill, error: createError } = await supabase
+            .from("Skills")
+            .insert({ name: trimmedName })
+            .select('id')
+            .single()
+
+          if (createError) {
+            console.warn(`Error creating skill "${trimmedName}":`, createError)
+            // Continue with other skills even if one fails
+            continue
+          }
+
+          if (newSkill) {
+            skillId = newSkill.id
+            skillsMap.set(lowerName, skillId)
+          }
+        }
+
+        if (skillId) {
+          skillIds.push(skillId)
+          if (!firstSkillId) {
+            firstSkillId = skillId
+          }
+        }
+      }
     }
 
+    // Create the opportunity (use first skill ID for backward compatibility with required_skill_id field)
     const { data, error } = await supabase
       .from("Opportunities")
       .insert({
@@ -734,7 +779,7 @@ export async function createOpportunity(
         ai_summary: aiSummary.trim(),
         urgency: urgency.toLowerCase(),
         status: 'New',
-        required_skill_id: requiredSkillId,
+        required_skill_id: firstSkillId, // Keep for backward compatibility
         created_at: new Date().toISOString(),
       })
       .select(`
@@ -758,7 +803,7 @@ export async function createOpportunity(
       .single()
 
     if (error) {
-      console.error('Error fetching count:', error)
+      console.error('Error creating opportunity:', error)
       throw error
     }
 
@@ -766,10 +811,42 @@ export async function createOpportunity(
       throw new Error('Failed to create opportunity')
     }
 
-    // Get skills for this opportunity
+    // Insert skills into opportunity_skills table (many-to-many relationship)
+    if (skillIds.length > 0) {
+      const opportunitySkillsData = skillIds.map(skillId => ({
+        opportunity_id: data.id,
+        skill_id: skillId,
+      }))
+
+      const { error: opportunitySkillsError } = await supabase
+        .from('opportunity_skills')
+        .insert(opportunitySkillsData)
+
+      if (opportunitySkillsError) {
+        console.warn('Error inserting opportunity_skills:', opportunitySkillsError)
+        // Don't throw - the opportunity was created, skills can be added later
+      }
+    }
+
+    // Get skills for this opportunity (from opportunity_skills table)
     let skills: { id: string; name: string }[] = []
     
-    if (data.required_skill_id) {
+    const { data: opportunitySkills } = await supabase
+      .from('opportunity_skills')
+      .select(`
+        skill:skill_id (
+          id,
+          name
+        )
+      `)
+      .eq('opportunity_id', data.id)
+
+    if (opportunitySkills && opportunitySkills.length > 0) {
+      skills = opportunitySkills.map((os: any) => os.skill).filter(Boolean)
+    }
+
+    // Fallback to required_skill_id if no skills in relation table
+    if (skills.length === 0 && data.required_skill_id) {
       const { data: skillData } = await supabase
         .from("Skills")
         .select('id, name')

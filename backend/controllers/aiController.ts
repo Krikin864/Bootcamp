@@ -69,7 +69,9 @@ REQUIREMENTS:
    ${skillsList}
    - If they mention specific technologies, try to match with the database skills when possible.
    - If there's no exact match, use the closest name or the name mentioned in the email.
-   - Return an array of strings with skill names in English.
+   - ALWAYS return an array of strings with skill names in English, even if only one skill is detected.
+   - If only one skill is found, return it as an array with a single element: ["skill1"]
+   - If no skills are found, return an empty array: []
    - All skill names must be in English, even if mentioned in another language in the email.
 
 IMPORTANT: You must respond ONLY with a valid JSON object with this exact structure:
@@ -78,6 +80,8 @@ IMPORTANT: You must respond ONLY with a valid JSON object with this exact struct
   "priority": "Low|Medium|High",
   "required_skills": ["skill1", "skill2", ...]
 }
+
+CRITICAL: required_skills MUST always be an array, never a single string. Even if only one skill is detected, wrap it in an array.
 
 Remember: ALL output must be in English, regardless of the input language.`
 

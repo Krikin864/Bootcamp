@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sparkles, Loader2, ArrowLeft, Edit2 } from "lucide-react"
@@ -22,13 +23,14 @@ interface AIReviewOverlayProps {
 export default function AIReviewOverlay({ clientName, company, clientText, onBack, onComplete }: AIReviewOverlayProps) {
   const [isProcessing, setIsProcessing] = useState(true)
   const [summary, setSummary] = useState("")
-  const [skillId, setSkillId] = useState("none")
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]) // Array of skill names
   const [urgency, setUrgency] = useState("")
   const [showResults, setShowResults] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [skills, setSkills] = useState<Skill[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [aiSuggestedSkills, setAiSuggestedSkills] = useState<string[]>([])
+  const [skillInput, setSkillInput] = useState("") // For manual skill input
 
   // Load skills from the DB
   useEffect(() => {
@@ -105,34 +107,43 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
         }
         setUrgency(priorityToUrgency[aiResult.priority] || 'Medium')
 
+        // Ensure required_skills is always an array
+        const aiSkills = Array.isArray(aiResult.required_skills) 
+          ? aiResult.required_skills 
+          : aiResult.required_skills 
+            ? [aiResult.required_skills] 
+            : []
+        
         // Save skills suggested by AI
-        setAiSuggestedSkills(aiResult.required_skills || [])
+        setAiSuggestedSkills(aiSkills)
 
-        // Find the first skill mentioned in the DB skills list
-        // If there are multiple skills, try to find the first match
-        if (aiResult.required_skills && aiResult.required_skills.length > 0) {
-          // Find the first skill that matches (case-insensitive)
-          const matchedSkill = skills.find(skill => 
-            aiResult.required_skills.some((reqSkill: string) => 
-              skill.name.toLowerCase() === reqSkill.toLowerCase()
+        // Match AI skills with database skills (case-insensitive)
+        const matchedSkillNames: string[] = []
+        if (aiSkills.length > 0) {
+          aiSkills.forEach((aiSkill: string) => {
+            // Try exact match first
+            const exactMatch = skills.find(skill => 
+              skill.name.toLowerCase() === aiSkill.toLowerCase()
             )
-          )
-          
-          if (matchedSkill) {
-            setSkillId(matchedSkill.id)
-          } else {
-            // If there's no exact match, try partial match
-            const partialMatch = skills.find(skill => 
-              aiResult.required_skills.some((reqSkill: string) => 
-                skill.name.toLowerCase().includes(reqSkill.toLowerCase()) ||
-                reqSkill.toLowerCase().includes(skill.name.toLowerCase())
+            if (exactMatch) {
+              matchedSkillNames.push(exactMatch.name)
+            } else {
+              // Try partial match
+              const partialMatch = skills.find(skill => 
+                skill.name.toLowerCase().includes(aiSkill.toLowerCase()) ||
+                aiSkill.toLowerCase().includes(skill.name.toLowerCase())
               )
-            )
-            setSkillId(partialMatch ? partialMatch.id : 'none')
-          }
-        } else {
-          setSkillId('none')
+              if (partialMatch) {
+                matchedSkillNames.push(partialMatch.name)
+              } else {
+                // If no match in DB, use the AI suggestion as-is
+                matchedSkillNames.push(aiSkill)
+              }
+            }
+          })
         }
+        
+        setSelectedSkills(matchedSkillNames)
 
       setShowResults(true)
       setIsProcessing(false)
@@ -151,9 +162,28 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
     }
   }, [clientText, skills])
 
+  const handleAddSkill = (skillName: string) => {
+    const trimmed = skillName.trim()
+    if (trimmed && !selectedSkills.includes(trimmed)) {
+      setSelectedSkills([...selectedSkills, trimmed])
+      setSkillInput("")
+    }
+  }
+
+  const handleRemoveSkill = (skillName: string) => {
+    setSelectedSkills(selectedSkills.filter(s => s !== skillName))
+  }
+
+  const handleSkillInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && skillInput.trim()) {
+      e.preventDefault()
+      handleAddSkill(skillInput)
+    }
+  }
+
   const handleConfirm = async () => {
-    if (!summary || skillId === "none" || !urgency) {
-      toast.error('Please fill in all fields')
+    if (!summary || !urgency) {
+      toast.error('Please fill in summary and urgency')
       return
     }
 
@@ -163,13 +193,13 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
       // 1. Find or create the client
       const client = await findOrCreateClient(clientName, company)
 
-      // 2. Create the opportunity in Supabase
+      // 2. Create the opportunity in Supabase with array of skill names
       const newOpportunity = await createOpportunity(
         client.id,
         clientText,
         summary,
         urgency.toLowerCase() as "high" | "medium" | "low",
-        skillId !== "none" ? skillId : null
+        selectedSkills.length > 0 ? selectedSkills : null
       )
 
       // 3. Dispatch event to update the Kanban
@@ -189,8 +219,6 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
       setIsSaving(false)
     }
   }
-
-  const selectedSkill = skills.find(s => s.id === skillId)
 
   return (
     <>
@@ -250,27 +278,85 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label htmlFor="skill" className="text-xs font-semibold">
-                      Required Skill
+                    <Label htmlFor="skills" className="text-xs font-semibold">
+                      Required Skills
                     </Label>
                     {isEditing ? (
-                      <Select value={skillId} onValueChange={setSkillId}>
-                        <SelectTrigger id="skill" className="mt-1 h-9 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No skill</SelectItem>
-                          {skills.map((skill) => (
-                            <SelectItem key={skill.id} value={skill.id}>
-                              {skill.name}
-                            </SelectItem>
+                      <div className="mt-1 space-y-2">
+                        <div className="flex flex-wrap gap-2">
+                          {selectedSkills.map((skillName) => (
+                            <span
+                              key={skillName}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary text-xs rounded-full border border-primary/20"
+                            >
+                              {skillName}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSkill(skillName)}
+                                className="hover:text-destructive"
+                              >
+                                ×
+                              </button>
+                            </span>
                           ))}
-                        </SelectContent>
-                      </Select>
+                        </div>
+                        <div className="flex gap-2">
+                          <Input
+                            id="skill-input"
+                            placeholder="Type skill and press Enter"
+                            value={skillInput}
+                            onChange={(e) => setSkillInput(e.target.value)}
+                            onKeyDown={handleSkillInputKeyDown}
+                            className="h-9 text-sm"
+                          />
+                          <Select
+                            value=""
+                            onValueChange={(value) => {
+                              if (value && value !== "none") {
+                                const skill = skills.find(s => s.id === value)
+                                if (skill) {
+                                  handleAddSkill(skill.name)
+                                }
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="h-9 text-sm w-32">
+                              <SelectValue placeholder="Add from DB" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {skills
+                                .filter(skill => !selectedSkills.includes(skill.name))
+                                .map((skill) => (
+                                  <SelectItem key={skill.id} value={skill.id}>
+                                    {skill.name}
+                                  </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        {aiSuggestedSkills.length > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            AI suggested: {aiSuggestedSkills.join(', ')}
+                          </p>
+                        )}
+                      </div>
                     ) : (
                       <div className="mt-1">
-                        <p className="text-sm font-medium text-foreground">{selectedSkill?.name || 'No skill'}</p>
-                        {aiSuggestedSkills.length > 0 && (
+                        {selectedSkills.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {selectedSkills.map((skillName) => (
+                              <span
+                                key={skillName}
+                                className="inline-flex items-center px-2 py-1 bg-primary/10 text-primary text-xs rounded-full border border-primary/20"
+                              >
+                                {skillName}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm font-medium text-foreground">No skills</p>
+                        )}
+                        {aiSuggestedSkills.length > 0 && selectedSkills.length === 0 && (
                           <p className="text-xs text-muted-foreground mt-1">
                             AI suggested: {aiSuggestedSkills.join(', ')}
                           </p>
@@ -319,7 +405,7 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
             {showResults && (
               <Button 
                 onClick={handleConfirm} 
-                disabled={!summary || skillId === "none" || !urgency || isSaving} 
+                disabled={!summary || !urgency || isSaving} 
                 className="flex-1 gap-2"
               >
                 {isSaving ? (

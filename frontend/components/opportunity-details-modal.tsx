@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { TagInput } from "@/components/ui/tag-input"
 import { getSkills, type Skill } from "@/services/skills"
 import { getTeamMembers, type TeamMember } from "@/services/members"
 import { updateOpportunityDetails, updateOpportunityStatus, deleteOpportunity, type Opportunity } from "@/services/opportunities"
@@ -43,7 +44,8 @@ export default function OpportunityDetailsModal({
   const dangerZoneRef = useRef<HTMLDivElement>(null)
   const [editedValues, setEditedValues] = useState({
     summary: "",
-    skillId: "none", // Use "none" instead of "" to avoid Select component error
+    selectedSkills: [] as string[], // Array of skill names
+    skillId: "none", // Keep for backward compatibility (first skill ID)
     urgency: "",
     assignedMemberId: "none", // Use "none" instead of "" to avoid Select component error
   })
@@ -87,16 +89,19 @@ export default function OpportunityDetailsModal({
         setSkills(skillsData)
         setTeamMembers(membersData)
         
-        // If the opportunity has a skill, find its ID by name
+        // If the opportunity has skills, convert to array of skill names
         const currentSkills = Array.isArray(opportunity.requiredSkill) 
-          ? opportunity.requiredSkill 
-          : [opportunity.requiredSkill]
+          ? opportunity.requiredSkill.filter(s => s && s !== '')
+          : (opportunity.requiredSkill && opportunity.requiredSkill !== '' ? [opportunity.requiredSkill] : [])
         
+        // Set selected skills (array of names)
+        setEditedValues(prev => ({ ...prev, selectedSkills: currentSkills }))
+        
+        // Find the ID of the first skill for backward compatibility
         if (currentSkills.length > 0 && currentSkills[0] && skillsData.length > 0) {
-          // Find the ID of the current skill by name
-          const currentSkill = skillsData.find(s => currentSkills.includes(s.name))
-          if (currentSkill) {
-            setEditedValues(prev => ({ ...prev, skillId: currentSkill.id }))
+          const firstSkill = skillsData.find(s => s.name === currentSkills[0])
+          if (firstSkill) {
+            setEditedValues(prev => ({ ...prev, skillId: firstSkill.id }))
           } else {
             setEditedValues(prev => ({ ...prev, skillId: "none" }))
           }
@@ -148,8 +153,12 @@ export default function OpportunityDetailsModal({
 
   const handleEditStart = () => {
     if (!opportunity) return
+    const currentSkills = Array.isArray(opportunity.requiredSkill) 
+      ? opportunity.requiredSkill.filter(s => s && s !== '')
+      : (opportunity.requiredSkill && opportunity.requiredSkill !== '' ? [opportunity.requiredSkill] : [])
     setEditedValues({
       summary: opportunity.aiSummary,
+      selectedSkills: currentSkills,
       skillId: "none", // Will be set when skills are loaded
       urgency: opportunity.urgency,
       assignedMemberId: opportunity.assigneeId || "none", // Will be set when members are loaded
@@ -171,9 +180,9 @@ export default function OpportunityDetailsModal({
   }
 
   // Validate skill field
-  const validateSkill = (skillId: string): boolean => {
-    if (skillId === "none" || skillId.trim() === "") {
-      setSkillError("Skill is required")
+  const validateSkill = (selectedSkills: string[]): boolean => {
+    if (selectedSkills.length === 0) {
+      setSkillError("At least one skill is required")
       return false
     }
     setSkillError("")
@@ -189,8 +198,8 @@ export default function OpportunityDetailsModal({
       return // Stop if validation fails
     }
 
-    // Validate skill before saving
-    if (!validateSkill(editedValues.skillId)) {
+    // Validate skills before saving
+    if (!validateSkill(editedValues.selectedSkills)) {
       return // Stop if validation fails
     }
 
@@ -400,7 +409,7 @@ export default function OpportunityDetailsModal({
               <div className="space-y-3">
                 <div>
                   <Label htmlFor="modal-edit-skill" className="text-xs font-medium mb-2 block">
-                    Required Skill
+                    Required Skills
                   </Label>
                   {isLoadingSkills ? (
                     <div className="flex items-center gap-2 p-4 bg-white/50 backdrop-blur-sm border border-white/40 rounded-2xl">
@@ -409,36 +418,31 @@ export default function OpportunityDetailsModal({
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      <Select
-                        value={editedValues.skillId}
-                        onValueChange={(value) => {
-                          setEditedValues((prev) => ({ ...prev, skillId: value }))
-                          // Clear error when user selects a skill
-                          if (skillError && value !== "none" && value.trim() !== "") {
+                      <TagInput
+                        tags={editedValues.selectedSkills}
+                        onTagsChange={(newSkills) => {
+                          setEditedValues((prev) => {
+                            // Update selected skills
+                            const updated = { ...prev, selectedSkills: newSkills }
+                            // Update skillId to first skill for backward compatibility
+                            if (newSkills.length > 0) {
+                              const firstSkill = skills.find(s => s.name === newSkills[0])
+                              updated.skillId = firstSkill ? firstSkill.id : "none"
+                            } else {
+                              updated.skillId = "none"
+                            }
+                            return updated
+                          })
+                          // Clear error when user adds a skill
+                          if (skillError && newSkills.length > 0) {
                             setSkillError("")
                           }
                         }}
+                        availableSkills={skills}
+                        placeholder="Add skills..."
                         disabled={isSaving}
-                      >
-                        <SelectTrigger 
-                          id="modal-edit-skill" 
-                          className={`bg-white/50 backdrop-blur-sm rounded-2xl border border-white/40 ${
-                            skillError 
-                              ? "border-destructive focus-visible:ring-destructive" 
-                              : ""
-                          }`}
-                        >
-                          <SelectValue placeholder="Select a skill" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No skill</SelectItem>
-                          {skills.map((skill) => (
-                            <SelectItem key={skill.id} value={skill.id}>
-                              {skill.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        className={skillError ? "ring-2 ring-destructive" : ""}
+                      />
                       {skillError && (
                         <p className="text-sm text-destructive flex items-center gap-1">
                           <AlertTriangle className="h-3 w-3" />
@@ -538,28 +542,24 @@ export default function OpportunityDetailsModal({
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowDangerZonePopover(!showDangerZonePopover)}
-                  className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                  className="text-muted-foreground hover:text-destructive/80 hover:bg-transparent"
                 >
-                  <AlertTriangle className="h-4 w-4 mr-1.5" />
-                  <span className="text-sm">Danger Zone</span>
+                  <span className="text-sm">Advanced Settings</span>
                 </Button>
 
                 {/* Popover menu - opens upward */}
                 {showDangerZonePopover && (
                   <div className="absolute bottom-full left-0 mb-2 w-80 bg-white/90 backdrop-blur-xl border border-white/40 rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.15)] z-50">
-                    <div className="bg-destructive/5 border-b border-destructive/20 rounded-t-lg p-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <AlertTriangle className="h-4 w-4 text-destructive" />
-                        <h4 className="font-semibold text-foreground text-sm">Danger Zone</h4>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
+                    <div className="p-3 border-b border-white/30">
+                      <h4 className="font-semibold text-foreground text-sm">Advanced Settings</h4>
+                      <p className="text-xs text-muted-foreground mt-1">
                         These actions cannot be undone. Cancelling an opportunity will remove it from the active pipeline. Deleting will permanently remove it.
                       </p>
                     </div>
                     <div className="p-3 space-y-2">
                       {onCancel && (
                         <Button
-                          variant="destructive"
+                          variant="ghost"
                           size="sm"
                           onClick={async () => {
                             if (!opportunity) return
@@ -573,14 +573,14 @@ export default function OpportunityDetailsModal({
                               toast.error(`Failed to cancel opportunity: ${error.message || 'Unknown error'}`)
                             }
                           }}
-                          className="w-full"
+                          className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 justify-start"
                         >
                           Cancel Opportunity
                         </Button>
                       )}
                       {onDelete && (
                         <Button
-                          variant="destructive"
+                          variant="ghost"
                           size="sm"
                           onClick={async () => {
                             if (!opportunity) return
@@ -611,7 +611,7 @@ export default function OpportunityDetailsModal({
                             }
                           }}
                           disabled={isDeleting}
-                          className="w-full"
+                          className="w-full text-destructive hover:text-destructive hover:bg-destructive/10 justify-start"
                         >
                           {isDeleting ? (
                             <>

@@ -57,22 +57,40 @@ export default function TeamRecommendationModal({
 
   // Normalize requiredSkill to array for comparison
   const requiredSkills = Array.isArray(opportunity.requiredSkill) 
-    ? opportunity.requiredSkill 
-    : [opportunity.requiredSkill].filter(skill => skill && skill !== '')
+    ? opportunity.requiredSkill.filter(skill => skill && skill !== '')
+    : (opportunity.requiredSkill && opportunity.requiredSkill !== '' ? [opportunity.requiredSkill] : [])
 
-  // Filter members who have at least one of the required skills
-  // When AI extracts skills, only show members with matching skills
-  const matchingMembers = teamMembers.filter((member) =>
-    requiredSkills.length > 0 && requiredSkills.some(skill => member.skills.includes(skill))
-  )
+  // Calculate match score for each member based on how many skills match
+  interface MemberWithScore extends TeamMember {
+    matchScore: number
+    matchingSkills: string[]
+  }
+
+  const membersWithScores = teamMembers.map((member) => {
+    if (requiredSkills.length === 0) {
+      return { ...member, matchScore: 0, matchingSkills: [] } as MemberWithScore
+    }
+    
+    const matchingSkills = member.skills.filter(skill => 
+      requiredSkills.some(reqSkill => reqSkill.toLowerCase() === skill.toLowerCase())
+    )
+    const matchScore = matchingSkills.length / requiredSkills.length // Percentage match
+    
+    return { ...member, matchScore, matchingSkills } as MemberWithScore
+  })
+
+  // Filter and sort members by match score
+  const matchingMembers: MemberWithScore[] = membersWithScores
+    .filter(({ matchScore }) => matchScore > 0)
+    .sort((a, b) => b.matchScore - a.matchScore) // Sort by highest match score first
   
   // Only show alternative members if no skills were extracted by AI
   // If skills were extracted, only show matching members
   const shouldShowAlternatives = requiredSkills.length === 0 || requiredSkills.every(skill => !skill || skill === '')
   const allOtherMembers = shouldShowAlternatives 
-    ? teamMembers.filter((member) =>
-    !requiredSkills.some(skill => member.skills.includes(skill))
-  )
+    ? membersWithScores
+        .filter(({ matchScore }) => matchScore === 0)
+        .map(({ member }) => member)
     : []
 
   return (
@@ -194,24 +212,32 @@ export default function TeamRecommendationModal({
                         className="flex items-center justify-between p-5 bg-white/70 backdrop-blur-xl border border-white/40 rounded-2xl shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.12)] transition-all"
                       >
                         <div className="flex-1">
-                          <p className="font-bold text-slate-800 text-base">{member.name}</p>
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-bold text-slate-800 text-base">{member.name}</p>
+                            <span className="text-xs px-2 py-0.5 bg-green-500/20 text-green-700 rounded-full font-semibold">
+                              {Math.round(member.matchScore * 100)}% Match
+                            </span>
+                          </div>
                           {member.email && (
                             <p className="text-xs text-slate-600 mt-1">{member.email}</p>
                           )}
                           <div className="flex gap-2 mt-3 flex-wrap">
                             {member.skills.length > 0 ? (
-                              member.skills.map((skill) => (
-                                <span
-                                  key={skill}
-                                  className={`text-xs px-3 py-1.5 rounded-full font-medium shadow-md border border-white/60 ${
-                                    requiredSkills.includes(skill)
-                                      ? "bg-white text-slate-800"
-                                      : "bg-white/70 text-slate-700"
-                                  }`}
-                                >
-                                  {skill}
-                                </span>
-                              ))
+                              member.skills.map((skill) => {
+                                const isMatching = member.matchingSkills.includes(skill)
+                                return (
+                                  <span
+                                    key={skill}
+                                    className={`text-xs px-3 py-1.5 rounded-full font-medium shadow-md border border-white/60 ${
+                                      isMatching
+                                        ? "bg-white text-slate-800"
+                                        : "bg-white/70 text-slate-700"
+                                    }`}
+                                  >
+                                    {skill}
+                                  </span>
+                                )
+                              })
                             ) : (
                               <span className="text-xs text-slate-600 italic">No skills assigned</span>
                             )}

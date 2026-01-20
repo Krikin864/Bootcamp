@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { TagInput } from "@/components/ui/tag-input"
 import { Sparkles, Loader2, ArrowLeft, Edit2 } from "lucide-react"
 import { getSkills, type Skill } from "@/services/skills"
 import { findOrCreateClient } from "@/services/clients"
@@ -23,6 +24,7 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
   const [isProcessing, setIsProcessing] = useState(true)
   const [summary, setSummary] = useState("")
   const [skillId, setSkillId] = useState("none")
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([])
   const [urgency, setUrgency] = useState("")
   const [showResults, setShowResults] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -106,30 +108,42 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
         setUrgency(priorityToUrgency[aiResult.priority] || 'Medium')
 
         // Save skills suggested by AI
-        setAiSuggestedSkills(aiResult.required_skills || [])
+        const suggestedSkills = aiResult.required_skills || []
+        setAiSuggestedSkills(suggestedSkills)
 
-        // Find the first skill mentioned in the DB skills list
-        // If there are multiple skills, try to find the first match
-        if (aiResult.required_skills && aiResult.required_skills.length > 0) {
-          // Find the first skill that matches (case-insensitive)
+        // Map AI suggested skills to actual skills from DB (normalize case)
+        const normalizedSuggestedSkills: string[] = []
+        suggestedSkills.forEach((reqSkill: string) => {
+          // Find exact match (case-insensitive)
           const matchedSkill = skills.find(skill => 
-            aiResult.required_skills.some((reqSkill: string) => 
-              skill.name.toLowerCase() === reqSkill.toLowerCase()
-            )
+            skill.name.toLowerCase() === reqSkill.toLowerCase()
           )
-          
           if (matchedSkill) {
-            setSkillId(matchedSkill.id)
+            normalizedSuggestedSkills.push(matchedSkill.name)
           } else {
-            // If there's no exact match, try partial match
+            // Find partial match
             const partialMatch = skills.find(skill => 
-              aiResult.required_skills.some((reqSkill: string) => 
-                skill.name.toLowerCase().includes(reqSkill.toLowerCase()) ||
-                reqSkill.toLowerCase().includes(skill.name.toLowerCase())
-              )
+              skill.name.toLowerCase().includes(reqSkill.toLowerCase()) ||
+              reqSkill.toLowerCase().includes(skill.name.toLowerCase())
             )
-            setSkillId(partialMatch ? partialMatch.id : 'none')
+            if (partialMatch) {
+              normalizedSuggestedSkills.push(partialMatch.name)
+            } else {
+              // If no match, use the skill as-is (capitalized)
+              normalizedSuggestedSkills.push(reqSkill.charAt(0).toUpperCase() + reqSkill.slice(1).toLowerCase())
+            }
           }
+        })
+
+        // Set selected skills (remove duplicates)
+        setSelectedSkills([...new Set(normalizedSuggestedSkills)])
+
+        // Set skillId to first match for backward compatibility
+        if (normalizedSuggestedSkills.length > 0) {
+          const firstSkill = skills.find(skill => 
+            skill.name.toLowerCase() === normalizedSuggestedSkills[0].toLowerCase()
+          )
+          setSkillId(firstSkill ? firstSkill.id : 'none')
         } else {
           setSkillId('none')
         }
@@ -152,8 +166,8 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
   }, [clientText, skills])
 
   const handleConfirm = async () => {
-    if (!summary || skillId === "none" || !urgency) {
-      toast.error('Please fill in all fields')
+    if (!summary || selectedSkills.length === 0 || !urgency) {
+      toast.error('Please fill in all fields, including at least one skill')
       return
     }
 
@@ -163,13 +177,18 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
       // 1. Find or create the client
       const client = await findOrCreateClient(clientName, company)
 
-      // 2. Create the opportunity in Supabase
+      // 2. Find the first skill ID from selected skills for backward compatibility
+      const firstSkillName = selectedSkills[0]
+      const firstSkill = skills.find(s => s.name.toLowerCase() === firstSkillName.toLowerCase())
+      const skillIdToSave = firstSkill ? firstSkill.id : null
+
+      // 3. Create the opportunity in Supabase
       const newOpportunity = await createOpportunity(
         client.id,
         clientText,
         summary,
         urgency.toLowerCase() as "high" | "medium" | "low",
-        skillId !== "none" ? skillId : null
+        skillIdToSave
       )
 
       // 3. Dispatch event to update the Kanban
@@ -190,7 +209,6 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
     }
   }
 
-  const selectedSkill = skills.find(s => s.id === skillId)
 
   return (
     <>
@@ -251,26 +269,40 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <Label htmlFor="skill" className="text-xs font-semibold">
-                      Required Skill
+                      Required Skills
                     </Label>
                     {isEditing ? (
-                      <Select value={skillId} onValueChange={setSkillId}>
-                        <SelectTrigger id="skill" className="mt-1 h-9 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No skill</SelectItem>
-                          {skills.map((skill) => (
-                            <SelectItem key={skill.id} value={skill.id}>
-                              {skill.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="mt-1">
+                        <TagInput
+                          tags={selectedSkills}
+                          onTagsChange={setSelectedSkills}
+                          availableSkills={skills}
+                          placeholder="Add skills..."
+                          disabled={isSaving}
+                        />
+                        {aiSuggestedSkills.length > 0 && selectedSkills.length === 0 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            AI suggested: {aiSuggestedSkills.join(', ')}
+                          </p>
+                        )}
+                      </div>
                     ) : (
                       <div className="mt-1">
-                        <p className="text-sm font-medium text-foreground">{selectedSkill?.name || 'No skill'}</p>
-                        {aiSuggestedSkills.length > 0 && (
+                        {selectedSkills.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {selectedSkills.map((skill, idx) => (
+                              <span
+                                key={idx}
+                                className="text-xs px-2 py-1 bg-background border border-border rounded-full text-foreground"
+                              >
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm font-medium text-foreground">No skills</p>
+                        )}
+                        {aiSuggestedSkills.length > 0 && selectedSkills.length === 0 && (
                           <p className="text-xs text-muted-foreground mt-1">
                             AI suggested: {aiSuggestedSkills.join(', ')}
                           </p>
@@ -319,7 +351,7 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
             {showResults && (
               <Button 
                 onClick={handleConfirm} 
-                disabled={!summary || skillId === "none" || !urgency || isSaving} 
+                disabled={!summary || selectedSkills.length === 0 || !urgency || isSaving} 
                 className="flex-1 gap-2"
               >
                 {isSaving ? (

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import AIReviewOverlay from "./ai-review-overlay"
 import { getAllClients, type Client } from "@/services/clients"
+import { motion } from "framer-motion"
 
 interface NewOpportunityModalProps {
   open: boolean
@@ -151,9 +152,11 @@ export default function NewOpportunityModal({ open, onOpenChange }: NewOpportuni
             <Button variant="outline" onClick={handleCloseAll} className="rounded-2xl border-white/40 bg-white/50">
               Cancel
             </Button>
-            <Button onClick={handleAnalyzeWithAI} disabled={!clientName || !company || !clientText} className="rounded-2xl">
-              Analyze with AI
-            </Button>
+            <motion.div whileTap={{ scale: 0.95 }}>
+              <Button onClick={handleAnalyzeWithAI} disabled={!clientName || !company || !clientText} className="rounded-2xl">
+                Analyze with AI
+              </Button>
+            </motion.div>
           </div>
         </div>
 

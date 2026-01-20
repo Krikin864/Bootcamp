@@ -25,7 +25,7 @@ export default function Sidebar({ open }: SidebarProps) {
     >
       <div className="h-16 border-b border-white/30 flex items-center px-6">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold shadow-lg">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold shadow-lg">
             F
           </div>
           {open && <span className="font-bold text-slate-800">flowOPS</span>}

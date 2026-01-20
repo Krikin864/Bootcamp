@@ -115,10 +115,10 @@ export default function OpportunityCard({
         {...(provided?.draggableProps || {})}
         style={cardStyle}
         onClick={handleClick}
-        className={`group relative p-5 bg-white/80 backdrop-blur-xl border border-white/50 rounded-[2rem] transition-all cursor-pointer transform-gpu pointer-events-auto ${
+        className={`group relative p-5 bg-white/80 backdrop-blur-xl border border-white/50 rounded-[2rem] transition-all duration-300 ease-in-out cursor-pointer transform-gpu pointer-events-auto ${
           snapshot?.isDragging
             ? "shadow-2xl opacity-90 rotate-3 scale-105"
-            : "shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.12)]"
+            : "shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] hover:shadow-xl hover:scale-[1.02] hover:border-white/20"
         } ${
           isUpdating ? "opacity-60" : ""
         }`}
@@ -155,7 +155,7 @@ export default function OpportunityCard({
 
         <div className="bg-white/50 backdrop-blur-sm p-3 rounded-2xl border border-white/40">
           <div className="flex items-start gap-2">
-            <Sparkles className="h-3 w-3 text-indigo-600 flex-shrink-0 mt-0.5" />
+            <Sparkles className="h-3 w-3 text-primary flex-shrink-0 mt-0.5" />
             <p className="text-xs text-slate-700 leading-snug line-clamp-2">
               {opportunity.aiSummary && opportunity.aiSummary.trim() 
                 ? opportunity.aiSummary 
@@ -175,8 +175,8 @@ export default function OpportunityCard({
           </div>
           {opportunity.assignee && (
             <div className="flex items-center gap-1.5">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center shadow-sm">
-                <span className="text-xs font-bold text-indigo-600">{opportunity.assignee.charAt(0)}</span>
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center shadow-sm">
+                <span className="text-xs font-bold text-primary">{opportunity.assignee.charAt(0)}</span>
               </div>
               <span className="text-xs text-slate-800 font-medium">{opportunity.assignee.split(" ")[0]}</span>
             </div>

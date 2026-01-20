@@ -15,8 +15,8 @@ export default function StatsCard({ label, value, icon: Icon }: StatsCardProps) 
           <p className="text-xs text-slate-600 mb-2 font-medium">{label}</p>
           <p className="text-2xl font-bold text-slate-800">{value}</p>
         </div>
-        <div className="p-3 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-2xl backdrop-blur-sm">
-          <Icon className="h-5 w-5 text-indigo-600" />
+        <div className="p-3 bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl backdrop-blur-sm">
+          <Icon className="h-5 w-5 text-primary" />
         </div>
       </div>
     </div>

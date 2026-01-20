@@ -95,8 +95,8 @@ export function MultiSelect({
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={cn(
-          "w-full justify-between h-auto min-h-[48px] bg-white/50 backdrop-blur-sm border border-white/40 rounded-2xl hover:bg-white/60 hover:border-indigo-500/40 transition-all",
-          isOpen && "border-indigo-500/40 ring-2 ring-indigo-500/20",
+          "w-full justify-between h-auto min-h-[48px] bg-white/50 backdrop-blur-sm border border-white/40 rounded-2xl hover:bg-white/60 hover:border-primary/40 transition-all",
+          isOpen && "border-primary/40 ring-2 ring-primary/20",
           disabled && "opacity-50 cursor-not-allowed"
         )}
       >
@@ -154,7 +154,7 @@ export function MultiSelect({
                 type="button"
                 onClick={() => handleToggle(optionName)}
                 className={cn(
-                  "w-full text-left px-4 py-3 hover:bg-indigo-50/50 focus:bg-indigo-50/50 focus:outline-none transition-colors flex items-center justify-between",
+                  "w-full text-left px-4 py-3 hover:bg-primary/5 focus:bg-primary/5 focus:outline-none transition-colors flex items-center justify-between",
                   isPending && !isFirstPending && "border-t border-white/30",
                   isPending && "bg-slate-50/50"
                 )}
@@ -173,7 +173,7 @@ export function MultiSelect({
                   )}
                 </div>
                 {isSelected && (
-                  <Check className="h-4 w-4 text-indigo-600 shrink-0" />
+                  <Check className="h-4 w-4 text-primary shrink-0" />
                 )}
               </button>
             )

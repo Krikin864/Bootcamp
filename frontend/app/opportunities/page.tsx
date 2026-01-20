@@ -118,7 +118,7 @@ export default function OpportunitiesPage() {
       case "new":
         return "bg-blue-100 text-blue-800"
       case "assigned":
-        return "bg-purple-100 text-purple-800"
+        return "bg-primary/10 text-primary"
       case "done":
         return "bg-green-100 text-green-800"
       case "cancelled":
@@ -314,7 +314,7 @@ export default function OpportunitiesPage() {
                 />
               </div>
             </div>
-            <Button className="gap-2 rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600 shadow-lg hover:shadow-xl transition-all" size="sm" onClick={() => setShowNewOpportunityModal(true)}>
+            <Button className="gap-2 rounded-2xl bg-gradient-to-r from-primary to-accent text-white hover:from-primary/90 hover:to-accent/90 shadow-lg hover:shadow-xl transition-all" size="sm" onClick={() => setShowNewOpportunityModal(true)}>
               <Plus className="h-4 w-4" />
               New Opportunity
             </Button>
@@ -345,7 +345,7 @@ export default function OpportunitiesPage() {
                         onClick={() => setViewMode("table")}
                         className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all z-10 ${
                           viewMode === "table"
-                            ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md"
+                            ? "bg-gradient-to-r from-primary to-accent text-white shadow-md"
                             : "text-slate-600 hover:text-slate-800"
                         }`}
                       >
@@ -356,7 +356,7 @@ export default function OpportunitiesPage() {
                         onClick={() => setViewMode("grid")}
                         className={`relative flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all z-10 ${
                           viewMode === "grid"
-                            ? "bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-md"
+                            ? "bg-gradient-to-r from-primary to-accent text-white shadow-md"
                             : "text-slate-600 hover:text-slate-800"
                         }`}
                       >

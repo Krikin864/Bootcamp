@@ -11,6 +11,7 @@ import { getSkills, type Skill } from "@/services/skills"
 import { findOrCreateClient } from "@/services/clients"
 import { createOpportunity, type Opportunity } from "@/services/opportunities"
 import { toast } from "sonner"
+import { motion } from "framer-motion"
 
 interface AIReviewOverlayProps {
   clientName: string
@@ -373,23 +374,25 @@ export default function AIReviewOverlay({ clientName, company, clientText, onBac
               Back
             </Button>
             {showResults && (
-              <Button 
-                onClick={handleConfirm} 
-                disabled={!summary || selectedSkills.length === 0 || !urgency || isSaving} 
-                className="flex-1 gap-2"
-              >
-                {isSaving ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="h-4 w-4" />
-                    Confirm & Create
-                  </>
-                )}
-              </Button>
+              <motion.div whileTap={{ scale: 0.95 }} className="flex-1">
+                <Button 
+                  onClick={handleConfirm} 
+                  disabled={!summary || selectedSkills.length === 0 || !urgency || isSaving} 
+                  className="w-full gap-2"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Confirm & Create
+                    </>
+                  )}
+                </Button>
+              </motion.div>
             )}
           </div>
         </div>

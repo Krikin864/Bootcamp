@@ -70,7 +70,7 @@ export default function DashboardContent() {
         <h1 className="text-2xl font-bold text-slate-800">Dashboard</h1>
         <Button 
           onClick={() => setShowNewOpportunity(true)} 
-          className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-2xl shadow-lg hover:shadow-xl transition-all"
+          className="gap-2 bg-gradient-to-r from-primary to-accent text-white rounded-2xl shadow-lg hover:shadow-xl transition-all"
           size="sm"
         >
           <Plus className="h-4 w-4" />

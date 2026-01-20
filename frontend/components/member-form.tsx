@@ -305,7 +305,7 @@ export default function MemberForm({
                         onClick={() => handleAddSkill(skill.id)}
                         disabled={isSubmitting}
                         type="button"
-                        className="px-3 py-1.5 bg-white/70 text-slate-700 rounded-full text-xs font-medium hover:bg-gradient-to-r hover:from-indigo-500 hover:to-purple-500 hover:text-white transition-all shadow-sm border border-white/60 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="px-3 py-1.5 bg-white/70 text-slate-700 rounded-full text-xs font-medium hover:bg-gradient-to-r hover:from-primary hover:to-accent hover:text-white transition-all shadow-sm border border-white/60 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {skill.name}
                       </button>

@@ -127,7 +127,7 @@ export function TagInput({
 
   return (
     <div className={cn("relative w-full", className)}>
-      <div className="flex flex-wrap gap-2 p-3 min-h-[48px] bg-white/50 backdrop-blur-sm border border-white/40 rounded-2xl focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500/40 transition-all">
+      <div className="flex flex-wrap gap-2 p-3 min-h-[48px] bg-white/50 backdrop-blur-sm border border-white/40 rounded-2xl focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 transition-all">
         {tags.map((tag, index) => {
           const isPending = tag === PENDING_OPTION
           return (
@@ -183,7 +183,7 @@ export function TagInput({
               <button
                 key={index}
                 type="button"
-                className={`w-full text-left px-4 py-3 hover:bg-indigo-50/50 focus:bg-indigo-50/50 focus:outline-none transition-colors ${
+                className={`w-full text-left px-4 py-3 hover:bg-primary/5 focus:bg-primary/5 focus:outline-none transition-colors ${
                   isPending && !isFirst ? "border-t border-white/30" : ""
                 } ${isPending ? "bg-slate-50/50" : ""}`}
                 onClick={() => handleSuggestionClick(suggestion)}

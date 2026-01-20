@@ -601,7 +601,7 @@ export default function KanbanBoard({ filters }: { filters?: any }) {
             </Button>
             <Button
               onClick={handleConfirmDone}
-              className="rounded-2xl bg-gradient-to-r from-indigo-500 to-purple-500 text-white"
+              className="rounded-2xl bg-gradient-to-r from-primary to-accent text-white"
             >
               Mark as Done
             </Button>

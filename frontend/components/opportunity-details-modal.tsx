@@ -13,6 +13,7 @@ import { getSkills, type Skill } from "@/services/skills"
 import { getTeamMembers, type TeamMember } from "@/services/members"
 import { updateOpportunityDetails, updateOpportunityStatus, deleteOpportunity, type Opportunity } from "@/services/opportunities"
 import { toast } from "sonner"
+import { motion } from "framer-motion"
 
 interface OpportunityDetailsModalProps {
   opportunity: Opportunity | null
@@ -494,8 +495,8 @@ export default function OpportunityDetailsModal({
             {!isEditing ? (
               opportunity.assignee ? (
                 <div className="bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/40 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500/20 to-purple-500/20 flex items-center justify-center shadow-sm">
-                    <span className="text-sm font-bold text-indigo-600">{opportunity.assignee.charAt(0)}</span>
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center shadow-sm">
+                    <span className="text-sm font-bold text-primary">{opportunity.assignee.charAt(0)}</span>
                   </div>
                   <div>
                     <p className="text-slate-800 font-semibold text-base">{opportunity.assignee}</p>
@@ -650,19 +651,21 @@ export default function OpportunityDetailsModal({
                   >
                     Cancel
                   </Button>
-                  <Button 
-                    onClick={handleSaveEdits}
-                    disabled={isSaving || editedValues.summary.trim() === "" || editedValues.selectedSkills.length === 0}
-                  >
-                    {isSaving ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      'Save Changes'
-                    )}
-                  </Button>
+                  <motion.div whileTap={{ scale: 0.95 }}>
+                    <Button 
+                      onClick={handleSaveEdits}
+                      disabled={isSaving || editedValues.summary.trim() === "" || editedValues.selectedSkills.length === 0}
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        'Save Changes'
+                      )}
+                    </Button>
+                  </motion.div>
                 </>
               ) : (
                 <>

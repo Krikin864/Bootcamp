@@ -5,6 +5,7 @@ import OpportunityCard from "@/components/opportunity-card"
 import { Button } from "@/components/ui/button"
 import { ArrowRight, Loader2 } from "lucide-react"
 import { type Opportunity } from "@/services/opportunities"
+import { motion } from "framer-motion"
 
 interface KanbanColumnProps {
   droppableId: string
@@ -34,7 +35,7 @@ export default function KanbanColumn({
   // Colores por defecto para las columnas
   const defaultColors = {
     new: "bg-blue-500",
-    assigned: "bg-purple-500",
+    assigned: "bg-primary",
     done: "bg-green-500",
   }
 
@@ -57,9 +58,9 @@ export default function KanbanColumn({
             {...provided.droppableProps}
             className={`space-y-4 min-h-96 bg-white/30 backdrop-blur-xl rounded-[2rem] p-5 border transition-colors ${
               snapshot.isDraggingOver
-                ? "border-2 border-dashed border-indigo-300/40 bg-indigo-50/5 shadow-[0_8px_32px_0_rgba(99,102,241,0.15)]"
+                ? "border-2 border-dashed border-primary/40 bg-primary/5 shadow-[0_8px_32px_0_rgba(99,102,241,0.15)]"
                 : isDraggingOverOther && !snapshot.isDraggingOver
-                ? "border-2 border-dashed border-indigo-300/20 bg-indigo-50/5"
+                ? "border-2 border-dashed border-primary/20 bg-primary/5"
                 : "border-white/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]"
             }`}
           >
@@ -71,7 +72,14 @@ export default function KanbanColumn({
               opportunities.map((opp, index) => {
                 const isUpdating = updatingIds.has(opp.id)
                 return (
-                  <div key={opp.id} className="flex gap-2 items-start relative">
+                  <motion.div
+                    key={opp.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3, delay: index * 0.05 }}
+                    layout
+                    className="flex gap-2 items-start relative"
+                  >
                     {isUpdating && (
                       <div className="absolute inset-0 bg-background/50 rounded-lg flex items-center justify-center z-10">
                         <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -122,7 +130,7 @@ export default function KanbanColumn({
                         </Button>
                       )}
                     </div>
-                  </div>
+                  </motion.div>
                 )
               })
             )}

@@ -216,8 +216,8 @@ export default function TeamPage() {
                     onClick={() => toggleSkillFilter(skill)}
                     className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${
                       isActive
-                        ? "bg-indigo-600 text-white border-indigo-600 shadow-indigo-200 shadow-lg scale-105"
-                        : "bg-white/50 text-slate-600 border-slate-200 hover:border-indigo-300"
+                        ? "bg-primary text-white border-primary shadow-primary/20 shadow-lg scale-105"
+                        : "bg-white/50 text-slate-600 border-slate-200 hover:border-primary/40"
                     }`}
                   >
                     {skill}
@@ -300,7 +300,7 @@ export default function TeamPage() {
                   <div
                     key={member.id}
                     onClick={() => handleMemberClick(member)}
-                    className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] p-6 hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.12)] hover:border-white/60 transition-all cursor-pointer space-y-4 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]"
+                    className="bg-white/70 backdrop-blur-xl border border-white/40 rounded-[2rem] p-6 hover:shadow-xl hover:scale-[1.02] hover:border-white/20 transition-all duration-300 ease-in-out cursor-pointer space-y-4 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)]"
                   >
                     <div className="flex flex-wrap gap-2">
                       {member.skills.length > 0 ? (

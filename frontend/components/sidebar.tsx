@@ -36,9 +36,9 @@ export default function Sidebar({ open }: SidebarProps) {
       <nav className="flex-1 p-4 space-y-2 relative">
         <motion.div layout className="space-y-2">
           {navItems.map((item, index) => {
-            const Icon = item.icon
-            const isActive = pathname === item.href
-            return (
+          const Icon = item.icon
+          const isActive = pathname === item.href
+          return (
               <div
                 key={item.label}
                 className="relative"
@@ -51,10 +51,10 @@ export default function Sidebar({ open }: SidebarProps) {
                   />
                 )}
                 <Link href={item.href} className="relative group block">
-                  <Button
+              <Button
                     variant="ghost"
                     className={`w-full justify-start gap-3 transition-all duration-200 relative z-10 ${
-                      isActive
+                  isActive
                         ? "bg-indigo-500/20 text-slate-800 hover:bg-indigo-500/20 hover:text-slate-800"
                         : "text-slate-700"
                     }`}
@@ -62,15 +62,15 @@ export default function Sidebar({ open }: SidebarProps) {
                     <motion.div
                       whileHover={{ rotate: 5, scale: 1.1 }}
                       transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                    >
+              >
                       <Icon className={`h-5 w-5 flex-shrink-0 transition-colors ${isActive ? "text-indigo-500" : "text-slate-600 group-hover:text-indigo-500"}`} />
                     </motion.div>
                     {open && <span className={`transition-colors ${isActive ? "font-medium text-slate-800" : "text-slate-700 group-hover:text-indigo-600"}`}>{item.label}</span>}
-                  </Button>
-                </Link>
+              </Button>
+            </Link>
               </div>
-            )
-          })}
+          )
+        })}
         </motion.div>
       </nav>
 

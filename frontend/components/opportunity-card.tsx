@@ -120,9 +120,9 @@ export default function OpportunityCard({
             ? "shadow-2xl opacity-90 rotate-3 scale-105"
             : "shadow-[0_8px_32px_0_rgba(31,38,135,0.07)] hover:shadow-xl hover:scale-[1.02] hover:border-white/20"
         } ${
-          isUpdating ? "opacity-60" : ""
-        }`}
-      >
+        isUpdating ? "opacity-60" : ""
+      }`}
+    >
       
       {/* Drag handle icon - only for draggable cards, hidden when dragging */}
       {provided?.dragHandleProps && !snapshot?.isDragging && (

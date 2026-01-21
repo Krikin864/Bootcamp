@@ -64,11 +64,11 @@ export default function KanbanColumn({
                 : "border-white/40 shadow-[0_8px_32px_0_rgba(31,38,135,0.05)]"
             }`}
           >
-            {opportunities.length === 0 ? (
+        {opportunities.length === 0 ? (
               <div className="flex items-center justify-center h-40 text-muted-foreground text-sm">
                 {snapshot.isDraggingOver ? "Drop here" : "No opportunities"}
               </div>
-            ) : (
+        ) : (
               <motion.div
                 initial="hidden"
                 animate="visible"
@@ -81,8 +81,8 @@ export default function KanbanColumn({
                 }}
               >
                 {opportunities.map((opp, index) => {
-                  const isUpdating = updatingIds.has(opp.id)
-                  return (
+            const isUpdating = updatingIds.has(opp.id)
+            return (
                     <motion.div
                       key={opp.id}
                       variants={{
@@ -93,63 +93,63 @@ export default function KanbanColumn({
                       layout
                       className="flex gap-2 items-start relative"
                     >
-                    {isUpdating && (
-                      <div className="absolute inset-0 bg-background/50 rounded-lg flex items-center justify-center z-10">
-                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <OpportunityCard 
-                        opportunity={opp} 
-                        onClick={() => onCardClick?.(opp)}
-                        isUpdating={isUpdating}
+                {isUpdating && (
+                  <div className="absolute inset-0 bg-background/50 rounded-lg flex items-center justify-center z-10">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <OpportunityCard 
+                    opportunity={opp} 
+                    onClick={() => onCardClick?.(opp)}
+                    isUpdating={isUpdating}
                         index={index}
                         isDraggable={true}
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1 pt-1">
-                      {opp.status === "new" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onAssignClick?.(opp)}
-                          className="bg-transparent text-xs"
-                          disabled={isUpdating}
-                        >
-                          Assign
-                        </Button>
-                      )}
-                      {opp.status === "assigned" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onMoveToComplete?.(opp.id)}
-                          className="bg-transparent gap-1"
-                          disabled={isUpdating}
-                        >
-                          <ArrowRight className="h-3 w-3" />
-                          Done
-                        </Button>
-                      )}
-                      {opp.status === "done" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => onArchive?.(opp.id)}
-                          className="bg-transparent text-xs"
-                          disabled={isUpdating}
-                        >
-                          Archive
-                        </Button>
-                      )}
-                    </div>
+                  />
+                </div>
+                <div className="flex flex-col gap-1 pt-1">
+                  {opp.status === "new" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onAssignClick?.(opp)}
+                      className="bg-transparent text-xs"
+                      disabled={isUpdating}
+                    >
+                      Assign
+                    </Button>
+                  )}
+                  {opp.status === "assigned" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onMoveToComplete?.(opp.id)}
+                      className="bg-transparent gap-1"
+                      disabled={isUpdating}
+                    >
+                      <ArrowRight className="h-3 w-3" />
+                      Done
+                    </Button>
+                  )}
+                  {opp.status === "done" && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onArchive?.(opp.id)}
+                      className="bg-transparent text-xs"
+                      disabled={isUpdating}
+                    >
+                      Archive
+                    </Button>
+                  )}
+                </div>
                     </motion.div>
                   )
                 })}
               </motion.div>
             )}
             {provided.placeholder}
-          </div>
+              </div>
         )}
       </Droppable>
     </div>

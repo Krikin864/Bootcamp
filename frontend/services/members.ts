@@ -269,10 +269,12 @@ export async function createTeamMember(memberData: {
       .eq('user_id', result.id)
 
     const skills: string[] = []
+    const skillIds: string[] = []
     if (!skillsError && userSkills) {
       userSkills.forEach((us: any) => {
         if (us.skill) {
           skills.push(us.skill.name)
+          skillIds.push(us.skill.id)
         }
       })
     }
@@ -284,6 +286,7 @@ export async function createTeamMember(memberData: {
       email: result.email,
       role: result.role,
       skills: skills,
+      skillIds: skillIds,
       activeOpportunities: 0,
       completedOpportunities: 0,
     }
@@ -397,10 +400,12 @@ export async function updateTeamMember(
       .eq('user_id', result.id)
 
     const skills: string[] = []
+    const skillIds: string[] = []
     if (!skillsError && userSkills) {
       userSkills.forEach((us: any) => {
         if (us.skill) {
           skills.push(us.skill.name)
+          skillIds.push(us.skill.id)
         }
       })
     }
@@ -412,6 +417,7 @@ export async function updateTeamMember(
       email: result.email,
       role: result.role,
       skills: skills,
+      skillIds: skillIds,
       activeOpportunities: 0, // These will be recalculated when the list is refreshed
       completedOpportunities: 0,
     }

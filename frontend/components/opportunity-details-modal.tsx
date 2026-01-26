@@ -239,6 +239,7 @@ export default function OpportunityDetailsModal({
       const updates: {
         ai_summary?: string
         urgency?: string
+        assigned_user_id?: string | null
       } = {}
 
       // Only include fields that have changed (using trimmed value)

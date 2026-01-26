@@ -140,7 +140,7 @@ export async function createOpportunity(input: CreateOpportunityInput): Promise<
       throw new Error('Could not create opportunity')
     }
 
-    return opportunity as OpportunityFromDB
+    return opportunity as unknown as OpportunityFromDB
   } catch (error: any) {
     console.error('Error in createOpportunity:', error)
     throw error

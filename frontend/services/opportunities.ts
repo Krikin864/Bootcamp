@@ -70,7 +70,7 @@ export async function getOpportunities(): Promise<Opportunity[]> {
       .order('created_at', { ascending: false })
 
     // If there's an error with relation syntax, try without JOINs and do separate queries
-    let opportunitiesData = opportunities
+    let opportunitiesData: any[] = opportunities || []
     if (opportunitiesError) {
       console.warn('Error with relation syntax, trying separate queries:', opportunitiesError.message)
       
@@ -294,6 +294,7 @@ export async function updateOpportunityStatus(
       summary: data.original_message || '',
       requiredSkill: skillNames.length > 0 ? (skillNames.length === 1 ? skillNames[0] : skillNames) : [],
       requiredSkillId: skills.length > 0 ? skills[0].id : null,
+      requiredSkillIds: skills.map(s => s.id), // Array of all skill IDs for matching
       assignee: assignedUser?.full_name || '',
       assigneeId: data.assigned_user_id || null,
       status: (data.status?.toLowerCase() || 'new') as "new" | "assigned" | "done" | "cancelled" | "archived",
@@ -425,6 +426,7 @@ export async function updateOpportunityAssignment(
       summary: data.original_message || '',
       requiredSkill: skillNames.length > 0 ? (skillNames.length === 1 ? skillNames[0] : skillNames) : [],
       requiredSkillId: skills.length > 0 ? skills[0].id : null,
+      requiredSkillIds: skills.map(s => s.id), // Array of all skill IDs for matching
       assignee: assignedUser?.full_name || '',
       assigneeId: data.assigned_user_id || null,
       status: (data.status?.toLowerCase() || 'new') as "new" | "assigned" | "done" | "cancelled" | "archived",

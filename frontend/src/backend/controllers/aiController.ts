@@ -184,7 +184,7 @@ Remember: ALL output must be in English, regardless of the input language.`
       }
 
       // If it's an OpenAI API error
-      if (error.message.includes('OpenAI') || error.status) {
+      if (error.message.includes('OpenAI') || (error as any).status) {
         console.error('OpenAI API error:', error.message)
         throw new Error('Error communicating with OpenAI service. Please try again later.')
       }

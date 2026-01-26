@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Sparkles, Zap, Edit2, Loader2, AlertTriangle, RefreshCw, X, Plus, CheckCircle2, AlertCircle } from "lucide-react"
+import { Sparkles, Zap, Edit2, Loader2, AlertTriangle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -59,15 +59,6 @@ export default function OpportunityDetailsModal({
     skills: string[]
   } | null>(null)
   const [hasOriginalMessageChanges, setHasOriginalMessageChanges] = useState(false)
-  const [smartSuggestions, setSmartSuggestions] = useState<Array<{
-    skill: string
-    reason: string
-  }>>([])
-  const [showMemberSwap, setShowMemberSwap] = useState(false)
-  const [currentMemberMatch, setCurrentMemberMatch] = useState<{
-    score: number
-    matchType: 'perfect' | 'partial' | 'none'
-  } | null>(null)
 
   // Reset danger zone popover visibility when modal opens/closes
   useEffect(() => {
@@ -248,7 +239,6 @@ export default function OpportunityDetailsModal({
       const updates: {
         ai_summary?: string
         urgency?: string
-        assigned_user_id?: string | null
       } = {}
 
       // Only include fields that have changed (using trimmed value)
@@ -508,163 +498,14 @@ export default function OpportunityDetailsModal({
     ? opportunity.requiredSkill
     : [opportunity.requiredSkill]
 
-  // Calculate match scores for all members
-  const getMembersWithScores = () => {
-    if (!opportunity?.requiredSkillIds || opportunity.requiredSkillIds.length === 0) {
-      return teamMembers.map(m => ({ ...m, matchScore: 0, matchType: 'none' as const, matchingSkills: [] }))
-    }
-
-    return teamMembers.map(member => {
-      const matchingSkillIds = member.skillIds?.filter(skillId => 
-        opportunity.requiredSkillIds?.includes(skillId)
-      ) || []
-
-      const matchPercentage = (matchingSkillIds.length / opportunity.requiredSkillIds!.length) * 100
-      const matchScore = Math.round(matchPercentage)
-
-      let matchType: 'perfect' | 'partial' | 'none' = 'none'
-      if (matchingSkillIds.length === opportunity.requiredSkillIds!.length) {
-        matchType = 'perfect'
-      } else if (matchingSkillIds.length > 0) {
-        matchType = 'partial'
-      }
-
-      const matchingSkills = member.skills.filter((_, index) => 
-        matchingSkillIds.includes(member.skillIds?.[index] || '')
-      )
-
-      return { ...member, matchScore, matchType, matchingSkills }
-    }).sort((a, b) => {
-      const typeOrder = { perfect: 0, partial: 1, none: 2 }
-      if (typeOrder[a.matchType] !== typeOrder[b.matchType]) {
-        return typeOrder[a.matchType] - typeOrder[b.matchType]
-      }
-      return b.matchScore - a.matchScore
-    })
-  }
-
-  // Live update when skills change
-  const handleLiveSkillUpdate = async (skillName: string, action: 'add' | 'remove') => {
-    if (!opportunity) return
-
-    try {
-      setIsSaving(true)
-
-      const skill = skills.find(s => s.name.toLowerCase() === skillName.toLowerCase())
-      if (!skill) return
-
-      const currentSkillIds = opportunity.requiredSkillIds || []
-      let newSkillIds: string[]
-
-      if (action === 'add') {
-        if (currentSkillIds.includes(skill.id)) return
-        newSkillIds = [...currentSkillIds, skill.id]
-      } else {
-        newSkillIds = currentSkillIds.filter(id => id !== skill.id)
-      }
-
-      const updatedOpportunity = await updateOpportunityDetails(
-        opportunity.id,
-        {},
-        newSkillIds
-      )
-
-      if (updatedOpportunity && onSaveEdits) {
-        const currentSkills = Array.isArray(opportunity.requiredSkill) 
-          ? opportunity.requiredSkill 
-          : (opportunity.requiredSkill ? [opportunity.requiredSkill] : [])
-
-        let newSkillsArray: string[]
-        if (action === 'add') {
-          newSkillsArray = [...currentSkills, skillName]
-        } else {
-          newSkillsArray = currentSkills.filter(s => s !== skillName)
-        }
-
-        const opportunityWithFullSkills = {
-          ...updatedOpportunity,
-          requiredSkill: newSkillsArray.length === 1 ? newSkillsArray[0] : newSkillsArray,
-          requiredSkillIds: newSkillIds
-        }
-        onSaveEdits(opportunityWithFullSkills)
-        
-        setEditedValues(prev => ({
-          ...prev,
-          selectedSkills: newSkillsArray
-        }))
-
-        if (action === 'add') {
-          setSmartSuggestions(prev => prev.filter(s => s.skill.toLowerCase() !== skillName.toLowerCase()))
-        }
-      }
-    } catch (error: any) {
-      toast.error(`Failed to update skill: ${error.message || 'Unknown error'}`)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  // Live update when member changes
-  const handleLiveMemberUpdate = async (memberId: string) => {
-    if (!opportunity) return
-
-    try {
-      setIsSaving(true)
-
-      const updates: { assigned_user_id?: string | null } = {}
-      if (memberId === "none") {
-        updates.assigned_user_id = null
-      } else {
-        updates.assigned_user_id = memberId
-      }
-
-      const updatedOpportunity = await updateOpportunityDetails(
-        opportunity.id,
-        updates,
-        undefined
-      )
-
-      if (updatedOpportunity && onSaveEdits) {
-        onSaveEdits(updatedOpportunity)
-        setShowMemberSwap(false)
-        toast.success('Team member updated successfully')
-      }
-    } catch (error: any) {
-      toast.error(`Failed to update member: ${error.message || 'Unknown error'}`)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
   return (
     <Dialog open={!!opportunity} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden p-0 bg-white/10 backdrop-blur-xl border border-white/10 rounded-[2rem] shadow-[0_20px_60px_0_rgba(31,38,135,0.15)]">
-        <DialogHeader className="px-10 pt-10 pb-6 border-b border-white/10">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold text-slate-800">Opportunity Details</DialogTitle>
-            <Button
-              onClick={handleRegenerateAnalysis}
-              disabled={isRegenerating || !editedValues.originalMessage.trim()}
-              className="gap-2 bg-gradient-to-r from-indigo-500 to-purple-400 hover:from-indigo-600 hover:to-purple-500"
-            >
-              {isRegenerating ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Regenerating...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4" />
-                  Regenerate with AI
-                </>
-              )}
-            </Button>
-          </div>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 bg-white/80 backdrop-blur-xl border border-white/40 rounded-[2rem] shadow-[0_20px_60px_0_rgba(31,38,135,0.15)]">
+        <DialogHeader className="px-10 pt-10 pb-6">
+          <DialogTitle className="text-2xl font-bold text-slate-800">Opportunity Details</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-[60%_40%] h-[calc(90vh-8rem)] overflow-hidden">
-          {/* Left Column - Project */}
-          <div className="border-r border-white/10 overflow-y-auto p-10 space-y-6">
+        <div className="px-10 pb-10 space-y-8">
           {/* Client Info */}
           <div className="space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">CLIENT INFORMATION</h3>
@@ -1175,7 +1016,6 @@ export default function OpportunityDetailsModal({
               )}
             </div>
           </div>
-        </div>
         </div>
       </DialogContent>
     </Dialog>

@@ -1,6 +1,6 @@
 "use client"
 
-import { LayoutDashboard, ListTodo, Users } from "lucide-react"
+import { LayoutDashboard, ListTodo, Users, Settings, LogOut } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -73,6 +73,27 @@ export default function Sidebar({ open }: SidebarProps) {
         })}
         </motion.div>
       </nav>
+
+      <div className="p-4 border-t border-white/30 space-y-2">
+        <Button variant="ghost" className="w-full justify-start gap-3 text-slate-700 transition-all duration-200 group">
+          <motion.div
+            whileHover={{ rotate: 5, scale: 1.1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+          >
+            <Settings className="h-5 w-5 transition-colors text-slate-600 group-hover:text-indigo-500" />
+          </motion.div>
+          {open && <span className="transition-colors group-hover:text-indigo-600">Settings</span>}
+        </Button>
+        <Button variant="ghost" className="w-full justify-start gap-3 text-slate-700 transition-all duration-200 group">
+          <motion.div
+            whileHover={{ rotate: 5, scale: 1.1 }}
+            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+          >
+            <LogOut className="h-5 w-5 transition-colors text-slate-600 group-hover:text-indigo-500" />
+          </motion.div>
+          {open && <span className="transition-colors group-hover:text-indigo-600">Logout</span>}
+        </Button>
+      </div>
     </aside>
   )
 }

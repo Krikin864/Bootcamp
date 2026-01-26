@@ -255,9 +255,8 @@ export default function OpportunitiesPage() {
         
         if (filters.startDate) {
           // Parse date as YYYY-MM-DD to avoid timezone issues
-          const startDateStr = typeof filters.startDate === 'string' 
-            ? filters.startDate.split('T')[0] 
-            : filters.startDate.toISOString().split('T')[0]
+          // Input type="date" always returns a string in YYYY-MM-DD format
+          const startDateStr = filters.startDate.split('T')[0]
           const startDate = new Date(startDateStr + 'T00:00:00.000Z')
           // Filter for created_at >= startDate (start of day in UTC)
           if (oppDate < startDate) return false
@@ -265,9 +264,8 @@ export default function OpportunitiesPage() {
         
         if (filters.endDate) {
           // Parse date as YYYY-MM-DD to avoid timezone issues
-          const endDateStr = typeof filters.endDate === 'string' 
-            ? filters.endDate.split('T')[0] 
-            : filters.endDate.toISOString().split('T')[0]
+          // Input type="date" always returns a string in YYYY-MM-DD format
+          const endDateStr = filters.endDate.split('T')[0]
           const endDate = new Date(endDateStr + 'T23:59:59.999Z')
           // Filter for created_at <= endDate (end of day in UTC, inclusive)
           if (oppDate > endDate) return false
